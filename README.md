@@ -42,11 +42,11 @@ npm install
 
 ```env
 PORT=8182                                    # 后端服务端口
-MYSQL_HOST=localhost                         # MySQL 主机地址
-MYSQL_PORT=23306                             # MySQL 端口（映射到宿主机的端口）
-MYSQL_USER=yisu_hotel_db_admin              # MySQL 用户名
-MYSQL_PASSWORD=hotelAdminPassword            # MySQL 密码
-MYSQL_DATABASE=yisu_hotel_db                # 数据库名称
+DB_HOST=localhost                         # MySQL 主机地址
+DB_PORT=23306                             # MySQL 端口（映射到宿主机的端口）
+DB_USER=yisu_hotel_db_admin              # MySQL 用户名
+DB_PASSWORD=hotelAdminPassword            # MySQL 密码
+DB_DATABASE=yisu_hotel_db                # 数据库名称
 ```
 
 **注意：** 在生产环境中，请务必修改默认密码！
@@ -161,7 +161,7 @@ docker exec yisu_hotel_mysql mysqldump -u root -p yisu_hotel_db > backup.sql
 
 ### Node.js 版本不兼容
 
-项目使用 Express 5.x，建议使用 Node.js 18 或更高版本。
+项目使用 Express 5.x，建议使用 Node.js 20 或更高版本。
 
 ## 作者
 

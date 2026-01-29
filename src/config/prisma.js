@@ -4,11 +4,10 @@ import { PrismaClient } from '@prisma/client';
 
 const adapter = new PrismaMariaDb({
   host: process.env.DB_HOST || "localhost", // ⭐ docker 内用 mysql
-  port: process.env.DB_PORT || 3306,
+  port: process.env.DB_PORT || 23306,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-
+  database: process.env.DB_DATABASE,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
