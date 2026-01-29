@@ -1,6 +1,7 @@
 
 import express from 'express';
 import dotenv from 'dotenv';
+import { testdbConnection } from './config/mysql.js';
 dotenv.config();
 import hotelRoutes from './routes/HotelRoutes.js';
 const app = express();
@@ -12,5 +13,6 @@ app.get("/health", (req, res) => {
 });
 const port = process.env.PORT;
 const server = app.listen(port, () => {
+    testdbConnection();
     console.log(`Server is running on port ${port}`);
 })
