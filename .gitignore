@@ -1,0 +1,258 @@
+# =========================
+# 依赖文件
+# =========================
+node_modules/
+.npm
+.yarn/
+.yarnrc
+yarn.lock
+package-lock.json
+pnpm-lock.yaml
+
+# =========================
+# 日志文件
+# =========================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+*.pid
+*.seed
+*.pid.lock
+
+# =========================
+# 运行时数据
+# =========================
+pids/
+*.pid
+*.seed
+*.pid.lock
+*.tgz
+
+# 覆盖率报告
+coverage/
+.nyc_output/
+
+# =========================
+# 环境变量
+# =========================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+.env.development
+.env.production
+.env.staging
+
+# =========================
+# IDE 和编辑器
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# 编辑器配置文件
+.project
+.settings/
+
+# =========================
+# 构建产物
+# =========================
+dist/
+build/
+.out/
+.next/
+nuxt/
+
+# TypeScript 编译输出
+*.tsbuildinfo
+
+# =========================
+# 测试相关
+# =========================
+.nyc_output
+
+# Jest
+jest-cache/
+jest-coverage/
+
+# =========================
+# 操作系统文件
+# =========================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Windows 缩略图缓存
+Thumbs.db
+
+# =========================
+# 临时文件
+# =========================
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# =========================
+# Docker
+# =========================
+# 排除 Docker 相关文件（根据情况选择）
+# *.dockerignore
+docker-compose.override.yml
+
+# =========================
+# 数据库文件
+# =========================
+*.db
+*.sqlite
+*.sqlite3
+dump.sql
+
+# =========================
+# 部署文件
+# =========================
+.deploy/
+.cache/
+
+# =========================
+# 项目特定文件
+# =========================
+# 根据项目需要添加
+uploads/
+temp/
+storage/uploads/
+public/uploads/
+
+# =========================
+# 证书和密钥
+# =========================
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+
+# =========================
+# 开发工具
+# =========================
+.eslintcache
+.stylelintcache
+
+# =========================
+# 性能日志
+# =========================
+.flamegraph
+*.cpuprofile
+*.heapsnapshot
+
+# =========================
+# 其他
+# =========================
+*.tgz
+*.tar.gz
+*.zip
+*.rar
+
+# 配置文件备份
+config/*.bak
+config/*.backup
+
+# =========================
+# macOS
+# =========================
+# 临时文件
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# 图标必须存储，Windows 可以忽略
+Icon
+
+# 缩略图
+._*
+
+# 文件可能会出现在 Apple 的 SMB 客户端中
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# 直接处理 AppleSingle/AppleDouble 文件的应用程序
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# =========================
+# Linux
+# =========================
+*~
+
+# 临时文件可能在安装 gvfs 时创建
+.gvfs
+
+# =========================
+# Windows
+# =========================
+# Windows 缩略图缓存文件
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+
+# 回收站
+$RECYCLE.BIN/
+
+# Windows 快捷方式
+*.lnk
+
+# =========================
+# 项目特定 - 酒店管理系统
+# =========================
+# 上传的图片文件
+public/images/uploads/
+public/images/temp/
+
+# 本地存储的备份文件
+backups/
+
+# 测试时生成的文件
+test-reports/
+test-results/
+
+# =========================
+# 监控和性能
+# =========================
+.prof
+.mem
+
+# =========================
+# 包管理器特定
+# =========================
+# pnpm
+node_modules/.pnpm-store/
+
+# Yarn 2
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*

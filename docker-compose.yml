@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:latest
+    container_name: yisu_hotel_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: yisuHotelRootPassword
+      MYSQL_DATABASE: yisu_hotel_db
+      MYSQL_USER: hoteldb_admin
+      MYSQL_PASSWORD: hotelAdminPassword
+    ports:
+      - "23306:3306"
+    volumes:
+      - yisu_mysql_data:/var/lib/mysql
+      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+volumes:
+  yisu_mysql_data:

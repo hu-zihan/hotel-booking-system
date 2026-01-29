@@ -1,0 +1,1 @@
+GRANT ALL PRIVILEGES ON yisu_hotel_db.* TO 'hoteldb_admin'@'%';
