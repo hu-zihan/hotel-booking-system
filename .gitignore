@@ -256,3 +256,12 @@ node_modules/.pnpm-store/
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+/src/generated/prisma
+
+/src/generated/prisma
+
+/src/generated/prisma
+
+/src/generated/prisma
+
+/src/generated/prisma
