@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 import { ParseAddress } from 'address-parse';
-const GAODE_API_KEY = process.env.GAODE_API_KEY;
+export const GAODE_API_KEY = process.env.GAODE_API_KEY;
 // 调用高德地图API获取地理编码 类型列表
 async function getLocationFromAmap(address) {
     const params = new URLSearchParams({
