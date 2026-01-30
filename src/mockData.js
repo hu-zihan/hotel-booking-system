@@ -18,7 +18,7 @@ export const mockHotels = [
     roomType: "经典双床房", // 酒店房型 [cite: 58]
     
     // 扩展字段 (用于提升首页/列表页体验) [cite: 60, 63]
-    imageurl: "https://pic.c-ctrip.com/hotels123.jpg", // 酒店 Banner 大图 
+    imageurl: "https://dimg04.c-ctrip.com/images/1mc4e12000brcmr26CB9D_R_600_400_R5.webp", // 酒店 Banner 大图 
     tags: ["免费停车场", "江景房", "亲子酒店"], // 快捷标签 
     score: 4.8, // 评分 
     status: "approved", // 审核状态: approved(通过), pending(审核中), rejected(不通过) 
