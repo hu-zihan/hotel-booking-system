@@ -18,6 +18,7 @@ for province_name in province_name_list:
                 continue
             try:
                 adcode = china_location[province_name][city_name][district_name]["_admin_code"]
-                print(adcode,province_name,city_name,district_name,latlng[(province_name,city_name,district_name)])
+                lat,lng = latlng[(province_name,city_name,district_name)]
+                print(adcode,province_name,city_name,district_name,lat,lng)
             except:
                 pass
