@@ -2,6 +2,8 @@ import os
 import logging
 import jionlp as jio
 from addressparser import latlng
+from dotenv import load_dotenv 
+load_dotenv()
 
 try:
     import pymysql
@@ -9,11 +11,11 @@ except Exception:
     pymysql = None
 
 DB_CONFIG = {
-    'host': os.environ.get('DB_HOST', '127.0.0.1'),
-    'user': os.environ.get('DB_USER', 'root'),
-    'password': os.environ.get('DB_PASSWORD', ''),
-    'database': os.environ.get('DB_NAME', 'test'),
-    'port': int(os.environ.get('DB_PORT', 3306))
+    'host': os.getenv('DB_HOST', '127.0.0.1'),
+    'user': os.getenv('DB_USER', 'root'),
+    'password': os.getenv('DB_PASSWORD', ''),
+    'database': os.getenv('DB_DATABASE', 'test'),
+    'port': int(os.getenv('DB_PORT', 3306))
 }
 
 """
@@ -31,6 +33,37 @@ desc 字段由 province_name + city_name + district_name 组成（无分隔符�
 """
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+
+
+def save_rows_to_excel(rows, file_path="area_adcode_location.xlsx"):
+    """
+    将结果写入 Excel 文件。
+
+    字段：省份、城市、区县、描述、经度、纬度、adcode
+    """
+    try:
+        from openpyxl import Workbook
+    except Exception:
+        raise RuntimeError("openpyxl is required but not installed. Install with: pip install openpyxl")
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "area_adcode_location"
+    ws.append(["province", "city", "district", "desc", "lon", "lat", "adcode"])
+
+    for row in rows:
+        ws.append([
+            row.get("province", ""),
+            row.get("city", ""),
+            row.get("district", ""),
+            row.get("desc", ""),
+            row.get("lon", ""),
+            row.get("lat", ""),
+            row.get("adcode", ""),
+        ])
+
+    wb.save(file_path)
+    logging.info("Excel saved: %s (rows=%d)", file_path, len(rows))
 
 
 def get_db_conn():
@@ -80,6 +113,7 @@ def main():
 
     conn = None
     cursor = None
+    rows_for_excel = []
     try:
         conn = get_db_conn()
         cursor = conn.cursor()
@@ -89,7 +123,6 @@ def main():
             "INSERT INTO area_adcode_location (adcode, lon, lat, `desc`) VALUES (%s, %s, %s, %s) "
             "ON DUPLICATE KEY UPDATE lon=VALUES(lon), lat=VALUES(lat), `desc`=VALUES(`desc`)"
         )
-
         count = 0
         for province_name in province_name_list:
             if province_name.startswith("_"):
@@ -116,7 +149,16 @@ def main():
                         lon, lat = parse_lon_lat(raw_ll)
                         desc = f"{province_name}{city_name}{district_name}"
 
-                        cursor.execute(insert_sql, (adcode, lon, lat, desc))
+                        # cursor.execute(insert_sql, (adcode, lon, lat, desc))
+                        rows_for_excel.append({
+                            "province": province_name,
+                            "city": city_name,
+                            "district": district_name,
+                            "desc": desc,
+                            "lon": lon,
+                            "lat": lat,
+                            "adcode": adcode,
+                        })
                         count += 1
                         if count % 100 == 0:
                             conn.commit()
@@ -127,6 +169,7 @@ def main():
 
         conn.commit()
         logging.info("Finished. Total rows processed (attempted inserts): %d", count)
+        save_rows_to_excel(rows_for_excel, "area_adcode_location.xlsx")
 
     finally:
         if cursor:
