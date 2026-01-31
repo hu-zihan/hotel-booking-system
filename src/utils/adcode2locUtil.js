@@ -38,5 +38,5 @@ export async function getLocationByAdcode(adcode) {
             return null;
         }
     }
-    return { lon: record.lon, lat: record.lat };
+    return { lon: record.lon, lat: record.lat, desc: record.desc,adcode: record.adcode };
 }

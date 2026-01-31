@@ -1,5 +1,7 @@
 import express from 'express';
 import { prisma } from '../config/prisma.js';
+import { addHotel,getHotelById,searchHotelStationById} from '../utils/hotelUtils.js';
+import { ok } from 'node:assert';
 const router = express.Router();
 
 // Define your hotel-related routes here
@@ -19,4 +21,45 @@ router.post("/add",(req,res)=>{
         res.status(500).json({error: "Failed to add hotel"});
     });
 })
+router.post("/addHotel", async (req, res) => {
+    try {
+        const hotelData = req.body;
+        const result = await addHotel(hotelData);
+        res.json(result);
+    } catch (error) {
+        console.error('添加酒店出错:', error);
+        res.status(500).json({ error: '添加酒店失败' });
+    }
+});
+router.get("/getHotelInfo", async (req, res) => {
+    try {
+        const {hotelId} = req.query;
+        if (!hotelId) {
+            return res.status(400).json({ 
+                error: "Hotel ID is required",
+                ok: false
+            });
+        }
+        
+        const hotel = await getHotelById(hotelId);
+        const stationsRaw = await searchHotelStationById(BigInt(hotelId));
+        
+        // 过滤并格式化站点数据
+        const stations = stationsRaw.map((station) => ({
+            name: station.cn_name,
+            en_name: station.en_name,
+            latitude: station.latitude_d,
+            longitude: station.longitude_d,
+            distance: station.distance,
+            line_name: station.line_name,
+            line_color: station.line_color,
+            city_name: station.city_name,
+        }));
+        
+        return res.json({hotel: hotel, stations: stations, ok: true});
+    } catch (error) {
+        console.error('获取酒店信息失败:', error);
+        return res.status(500).json({ error: error.message, ok: false });
+    }
+});
 export default router;

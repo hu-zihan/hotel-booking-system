@@ -15,3 +15,37 @@ CREATE Table if not exists station(
     lon VARCHAR(50) COMMENT '经度',
     lat VARCHAR(50) COMMENT '纬度'
 ) ;
+CREATE TABLE hotel (
+  id          BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '酒店ID',
+  `name`        VARCHAR(128) NOT NULL COMMENT '酒店名称',
+  `address`     VARCHAR(255) NOT NULL COMMENT '详细地址',
+  adcode      VARCHAR(12)  NULL COMMENT '行政区adcode',
+  latitude    DECIMAL(10,7) NOT NULL COMMENT '纬度',
+  longitude   DECIMAL(10,7) NOT NULL COMMENT '经度',
+  geohash     VARCHAR(12)   NOT NULL COMMENT 'geohash',
+  star        TINYINT NOT NULL DEFAULT 0 COMMENT '星级 0~5',
+  min_price   DECIMAL(10,3) NOT NULL DEFAULT 0 COMMENT '最低价(分)',
+  audit_status TINYINT NOT NULL DEFAULT 0 COMMENT '审核状态 0待审核 1通过 2拒绝',
+  `status`       TINYINT NOT NULL DEFAULT 0 COMMENT '上架状态 1上架 0下架',
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_adcode (adcode),
+  INDEX idx_geohash (geohash),
+  INDEX idx_price (min_price),
+  INDEX idx_audit (audit_status, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='酒店主表(含审核)';
+
+CREATE TABLE hotel_info (
+  hotel_id     BIGINT PRIMARY KEY COMMENT '酒店ID',
+--   之后要增加所商户户ID字段,商户是和user表关联的,暂时不加,user中有customer_type区分商户和普通用户,以及审核员
+  name_en      VARCHAR(128) NULL COMMENT '英文名',
+  phone        VARCHAR(32)  NULL COMMENT '联系电话',
+  open_date    DATE NULL COMMENT '开业时间',
+  `desc`  TEXT NULL COMMENT '酒店简介',
+  created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_info_hotel
+    FOREIGN KEY (hotel_id)
+    REFERENCES hotel(id)
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='酒店扩展信息表';
