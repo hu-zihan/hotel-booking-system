@@ -2,6 +2,7 @@
 import { GeoHash } from "geohash";
 import { prisma } from "../config/prisma.js";
 import ngeohash from 'ngeohash';
+import { mergeSameStation } from "./util.js";
 /**
  * 添加酒店
  * 
@@ -96,7 +97,7 @@ export async function getHotelById(hotelId) {
         include: {
             hotel_info: true,
         }
-    });
+    })
     
     if (!hotel) {
         throw new Error('酒店不存在');
@@ -118,7 +119,7 @@ export async function searchHotelStationById(hotel_id) {
     })
     
     if (!hotel || !hotel.latitude || !hotel.longitude) {
-        throw new Error('酒店坐标信息不完整');
+        throw new Error('酒店坐标信息不完整,缺乏地址解析功能');
     }
     
     const candidates = geohashCandidate(hotel.latitude, hotel.longitude, 5);
@@ -143,7 +144,7 @@ export async function searchHotelStationById(hotel_id) {
         }))
         .filter((s) => s.distance !== null && s.distance <= 2000)
         .sort((a, b) => a.distance - b.distance);
-    return result
+    return mergeSameStation(result).filter(value => value.distance <= 800);
 }
 // 计算两点间距离（米）
 function distanceMeter(lat1, lon1, lat2, lon2) {

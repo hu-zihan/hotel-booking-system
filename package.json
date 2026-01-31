@@ -16,7 +16,8 @@
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "geohash": "^0.0.1",
-    "mysql2": "^3.16.2"
+    "mysql2": "^3.16.2",
+    "ngeohash": "^0.6.3"
   },
   "devDependencies": {
     "@types/node": "^25.1.0",

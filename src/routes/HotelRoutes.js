@@ -2,6 +2,7 @@ import express from 'express';
 import { prisma } from '../config/prisma.js';
 import { addHotel,getHotelById,searchHotelStationById} from '../utils/hotelUtils.js';
 import { ok } from 'node:assert';
+import { info } from 'node:console';
 const router = express.Router();
 
 // Define your hotel-related routes here
@@ -41,19 +42,25 @@ router.get("/getHotelInfo", async (req, res) => {
             });
         }
         
-        const hotel = await getHotelById(hotelId);
+        const hotelRaw = await getHotelById(hotelId);
         const stationsRaw = await searchHotelStationById(BigInt(hotelId));
+        
+        // 过滤 hotel 对象中不需要的字段
+        const {adcode, geohash, audit_status, status, created_at, updated_at, hotel_info, ...hotel} = hotelRaw;
+        
+        // 过滤 hotel_info 对象中不需要的字段
+        if (hotel_info) {
+            const {hotel_id, created_at: info_created, updated_at: info_updated, ...cleanInfo} = hotel_info;
+            hotel.hotel_info = cleanInfo;
+        }
         
         // 过滤并格式化站点数据
         const stations = stationsRaw.map((station) => ({
             name: station.cn_name,
             en_name: station.en_name,
-            latitude: station.latitude_d,
-            longitude: station.longitude_d,
             distance: station.distance,
             line_name: station.line_name,
             line_color: station.line_color,
-            city_name: station.city_name,
         }));
         
         return res.json({hotel: hotel, stations: stations, ok: true});

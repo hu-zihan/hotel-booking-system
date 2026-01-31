@@ -53,6 +53,32 @@ export async function getLocation(loc){
     }
     return codeList;
 }   
+export function mergeSameStation(stations) {
+    const stationMap = {};  // 改用普通对象
+    
+    for (let station of stations) {
+        if (!stationMap[station.cn_name]) {
+            // 首次遇到该站点
+            stationMap[station.cn_name] = {
+                cn_name: station.cn_name,
+                en_name: station.en_name,
+                distance: station.distance,
+                line_name: [station.line_name],
+                line_color: [station.line_color],
+            };
+        } else {
+            // 已存在同名站点，合并线路信息
+            const existing = stationMap[station.cn_name];
+            existing.line_name.push(station.line_name);
+            existing.line_color.push(station.line_color);
+        }
+    }
+    
+    // 转换为数组并按最小距离排序
+    return Object.values(stationMap).sort((a, b) => a.distance - b.distance);
+}
+
+
 
 // // test
 // const locatins_list = [

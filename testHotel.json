@@ -1,0 +1,67 @@
+{
+  "name": "北京王府半岛酒店",
+  "address": "北京市东城区王府井金鱼胡同8号",
+  "latitude": 39.917007,
+  "longitude": 116.410496,
+  "phone": "010-85162888",
+  "nameEn": "The Peninsula Beijing",
+  "desc": "位于王府井核心商业区的奢华酒店，融合传统北京特色与现代豪华设施，距离天安门广场仅5分钟车程。酒店拥有各类客房、餐厅、水疗中心和会议设施。",
+  "openDate": "1989-07-01",
+  "star": 5,
+  "minPrice": 2500
+}
+{
+  "name": "广州天河希尔顿酒店",
+  "address": "广东省广州市天河区林和西横路215号",
+  "latitude": 23.141203,
+  "longitude": 113.324780,
+  "phone": "020-66836666",
+  "nameEn": "Hilton Guangzhou Tianhe",
+  "desc": "位于广州天河CBD的商务酒店，交通便利，邻近广州东站和体育中心，适合商务旅客和会议活动。",
+  "openDate": "2012-11-18",
+  "star": 4,
+  "minPrice": 800
+}
+{
+  "name": "汉庭酒店（上海南京东路店）",
+  "address": "上海市黄浦区宁波路588号",
+  "phone": "021-63515888",
+  "desc": "位于上海繁华的南京东路商圈，交通便利，提供舒适的住宿环境和基础服务设施，性价比高。",
+  "openDate": "2018-05-10",
+  "star": 3,
+  "minPrice": 350
+}
+{
+  "name": "成都博舍酒店",
+  "address": "四川省成都市锦江区笔帖式街81号",
+  "latitude": 30.653812,
+  "longitude": 104.080445,
+  "phone": "028-62974199",
+  "nameEn": "The Temple House",
+  "desc": "位于成都太古里商圈的设计酒店，融合传统川西民居风格与现代设计理念，提供独特的文化体验。",
+  "openDate": "2015-07-01",
+  "star": 5,
+  "minPrice": 2200
+}
+{
+  "name": "三亚亚龙湾瑞吉度假酒店",
+  "address": "海南省三亚市吉阳区亚龙湾国家旅游度假区",
+  "latitude": 18.230546,
+  "longitude": 109.649394,
+  "phone": "0898-88555555",
+  "nameEn": "The St. Regis Sanya Yalong Bay Resort",
+  "desc": "位于亚龙湾一线海景的奢华度假酒店，拥有私人沙滩、多个泳池、水疗中心和各类水上活动设施。",
+  "openDate": "2011-12-01",
+  "star": 5,
+  "minPrice": 2800
+}
+{
+  "name": "深圳前海JW万豪酒店",
+  "address": "广东省深圳市南山区前海深港合作区前湾一路63号",
+  "phone": "0755-88888888",
+  "nameEn": "JW Marriott Hotel Shenzhen Qianhai",
+  "desc": "2023年新开业的豪华商务酒店，位于深圳前海自贸区核心位置，拥有先进的会议设施和餐饮服务。",
+  "openDate": "2023-06-30",
+  "star": 5,
+  "minPrice": 1600
+}
