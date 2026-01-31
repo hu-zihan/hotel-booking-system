@@ -1,10 +1,10 @@
     create Table IF NOT EXISTS area_adcode_location (
-       adcode VARCHAR(10) PRIMARY KEY,
-       lon VARCHAR(50),
-        lat VARCHAR(50)
+        adcode VARCHAR(10) PRIMARY KEY,
+        lon VARCHAR(50),
+        lat VARCHAR(50),
+    `desc` VARCHAR(255)
     );
 
-ALTER TABLE area_adcode_location ADD COLUMN description VARCHAR(255) COMMENT '描述信息';
 CREATE Table if not exists station(
     id INT PRIMARY KEY AUTO_INCREMENT COMMENT '自增主键',
     cn_name VARCHAR(255) COMMENT '站点中文名称',
