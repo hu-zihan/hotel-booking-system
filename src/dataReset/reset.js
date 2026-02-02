@@ -12,7 +12,7 @@ const PRECISION = 12;
 
 // If your real MySQL table names differ, change here:
 const TABLE_STATION = "station";
-const TABLE_HOTEL = "hotel";
+const TABLE_AREA = "area_adcode_location";
 
 // Batch sizes
 const SELECT_BATCH = 2000;
@@ -36,7 +36,7 @@ function validLatLon(lat, lon) {
 }
 
 function gh(lat, lon) {
-  return ngeohash.encode(lat, lon, PRECISION);
+  return ngeohash.encode(lat, lon, 10);
 }
 
 /**
@@ -129,20 +129,20 @@ async function rebuildStations(conn) {
  *  - Use latitude/longitude DECIMAL(10,7)
  *  - If missing -> skip
  */
-async function rebuildHotels(conn) {
-  console.log(`\n==> Rebuilding geohash for ${TABLE_HOTEL} ...`);
+async function rebuildArea(conn) {
+  console.log(`\n==> Rebuilding geohash for ${TABLE_AREA} ...`);
 
   const selectSql = `
-    SELECT id, latitude, longitude, geohash
-    FROM ${TABLE_HOTEL}
-    ORDER BY id
+    SELECT adcode, lat, lon, geohash
+    FROM ${TABLE_AREA}
+    ORDER BY adcode
     LIMIT ? OFFSET ?
   `;
 
   const updateSql = `
-    UPDATE ${TABLE_HOTEL}
+    UPDATE ${TABLE_AREA}
     SET geohash = ?
-    WHERE id = ?
+    WHERE adcode = ?
   `;
 
   let offset = 0;
@@ -155,13 +155,13 @@ async function rebuildHotels(conn) {
 
     const updates = [];
     for (const r of rows) {
-      const lat = toNum(r.latitude);
-      const lon = toNum(r.longitude);
+      const lat = toNum(r.lat);
+      const lon = toNum(r.lon);
 
-      if (!validLatLon(lat, lon)) {
-        skipped++;
-        continue;
-      }
+      // if (!validLatLon(lat, lon)) {
+      //   skipped++;
+      //   continue;
+      // }
 
       const newGh = gh(lat, lon);
       const oldGh = r.geohash ? String(r.geohash).trim() : "";
@@ -169,7 +169,7 @@ async function rebuildHotels(conn) {
       // hotel.geohash is NOT NULL in schema; but still safe
       if (oldGh === newGh) continue;
 
-      updates.push([newGh, r.id]);
+      updates.push([newGh, r.adcode]);
     }
 
     for (let i = 0; i < updates.length; i += UPDATE_BATCH) {
@@ -191,7 +191,7 @@ async function rebuildHotels(conn) {
     offset += SELECT_BATCH;
   }
 
-  console.log(`==> DONE ${TABLE_HOTEL}: read=${read}, updated=${updated}, skippedBadLatLon=${skipped}`);
+  console.log(`==> DONE ${TABLE_AREA}: read=${read}, updated=${updated}, skippedBadLatLon=${skipped}`);
 }
 
 async function main() {
@@ -210,8 +210,7 @@ async function main() {
     // Ensure stable behavior
     await conn.query("SET time_zone = '+00:00'");
 
-    await rebuildStations(conn);
-    await rebuildHotels(conn);
+    await rebuildArea(conn);
 
     console.log("\nAll done ✅");
   } finally {
