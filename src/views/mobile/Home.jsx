@@ -12,6 +12,8 @@ export default function MobileHome() {
   const [calendarVisible, setCalendarVisible] = useState(false);
   // 状态：存储选中的日期范围
   const [dateRange, setDateRange] = useState(null);
+  // 临时状态：存储用户正在选择的日期（点击确认后才正式保存到 dateRange）
+  const [tempDateRange, setTempDateRange] = useState(null);
   // 状态：存储当前城市
   const [currentCity, setCurrentCity] = useState('上海');
   // 状态：定位加载中
@@ -116,12 +118,17 @@ export default function MobileHome() {
 
   // 处理查询点击
   const handleSearch = () => {
+    // 1. 先做“拦截”：如果没选日期，弹窗报错并中断代码执行
     if (!dateRange) {
-      Toast.show({ content: '请选择入住和离店日期' });
-      return;
+      alert('请选择入住和离店日期');
+      return; // 这里的 return 很关键，防止没选日期也往下跳
     }
-    // 之后我们会在这里编写跳转到列表页的代码
-    console.log('查询条件：', { dateRange });
+
+    // 2. 只有通过了上面的校验，才会执行到这里
+    console.log('查询条件已保存：', { dateRange });
+
+    // 3. 执行跳转：丝滑切换到登录页  //后面会修改这里的切换页面逻辑，这里先用切换到登录页占位
+    navigate('/login'); 
   };
 
   // 渲染顶部 Banner 区域的函数
@@ -228,17 +235,42 @@ export default function MobileHome() {
 
       {/* 日历组件 */}
         <Popup
-                visible={calendarVisible} // 控制是否弹出
-                onMaskClick={() => setCalendarVisible(false)} // 点击阴影关闭
-                onClose={() => setCalendarVisible(false)}
-            >
-                <Calendar
-                selectionMode='range'
-                onConfirm={val => {
-                    setDateRange(val); // 存入选中的日期
-                    setCalendarVisible(false); // 选中后自动关闭弹窗
+                visible={calendarVisible} // 控制弹窗显示
+                onMaskClick={() => setCalendarVisible(false)} // 点击遮罩关闭
+                onClose={() => {
+                  setCalendarVisible(false); // 关闭弹窗
+                  setTempDateRange(null); // 清空临时选择的日期
                 }}
-                />
+                bodyStyle={{ height: 'auto', maxHeight: '80vh' }} // 自适应高度，最高80%视窗
+            >
+                <div style={{ padding: '12px' }}>
+                  {/* 日历选择器 - 范围模式 */}
+                  <Calendar
+                    selectionMode='range' // 范围选择模式
+                    value={tempDateRange || dateRange} // 显示临时选择或已确认的日期
+                    onChange={val => {
+                      setTempDateRange(val); // 用户选择日期时存入临时状态
+                    }}
+                  />
+                  {/* 确认按钮区域 */}
+                  <div style={{ padding: '12px 0' }}>
+                    <Button 
+                      block // 按钮占满整行
+                      color='primary' 
+                      size='large'
+                      disabled={!tempDateRange} // 未选择完整日期范围时禁用按钮
+                      onClick={() => {
+                        if (tempDateRange) {
+                          setDateRange(tempDateRange); // 将临时日期保存到正式状态
+                          setCalendarVisible(false); // 关闭弹窗
+                          setTempDateRange(null); // 清空临时状态
+                        }
+                      }}
+                    >
+                      确认
+                    </Button>
+                  </div>
+                </div>
         </Popup>
     </div>
   );
