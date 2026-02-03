@@ -3,8 +3,11 @@ import { Button, Calendar, SearchBar, Tag, Toast ,Popup} from 'antd-mobile';
 import { EnvironmentOutline } from 'antd-mobile-icons';
 import { mockHotels } from '../../mockData'; // 指向写好的 mockData.js
 import './Home.css';
+import { useNavigate } from 'react-router-dom';
+import HotelCard from '../../components/hotelCard';
 
 export default function MobileHome() {
+  const navigate = useNavigate();
   // 状态：控制日历弹出层
   const [calendarVisible, setCalendarVisible] = useState(false);
   // 状态：存储选中的日期范围
@@ -73,6 +76,19 @@ export default function MobileHome() {
         <Button block color='primary' size='large' onClick={handleSearch}>
           开始查询
         </Button>
+      </div>
+
+        {/* 3.推荐酒店列表容器 */}
+      <div className="hotel-list-container" style={{ padding: '16px', background: '#f5f5f5' }}>
+        <h3 style={{ marginBottom: '12px' }}>热门推荐</h3>
+    
+         {mockHotels.map((hotel) => (
+          <HotelCard 
+            key={hotel.id} 
+            data={hotel} 
+            onClick={() => navigate(`/detail/${hotel.id}`)}  //点击进入酒店详情页，使用反引号包裹路径，通过 ${hotel.id} 动态地将当前酒店的 ID（如 'h1'）拼接到 URL 中
+          />
+        ))}
       </div>
 
       {/* 日历组件 */}
