@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Calendar, SearchBar, Tag, Toast ,Popup} from 'antd-mobile';
+import { Button, Calendar, SearchBar, Tag,Popup,Swiper, Image, Toast } from 'antd-mobile';
 import { EnvironmentOutline } from 'antd-mobile-icons';
 import { mockHotels } from '../../mockData'; // 指向写好的 mockData.js
 import './Home.css';
@@ -12,6 +12,7 @@ export default function MobileHome() {
   const [calendarVisible, setCalendarVisible] = useState(false);
   // 状态：存储选中的日期范围
   const [dateRange, setDateRange] = useState(null);
+  const bannerHotel = mockHotels[Math.floor(Math.random() * mockHotels.length)];
 
   // 处理查询点击
   const handleSearch = () => {
@@ -23,18 +24,48 @@ export default function MobileHome() {
     console.log('查询条件：', { dateRange });
   };
 
-  // 使用你修改后的 imageurl 字段
-  const bannerHotel = mockHotels[0];
+  // 渲染顶部 Banner 区域的函数
+  const renderBanner = () => {
+    // 我们选取数组中的第一个酒店作为广告推荐
+    const bannerHotel = mockHotels[0];
+
+    return (
+      <div className="home-banner" style={{ padding: '12px' }}>
+        <Swiper autoplay loop style={{ '--border-radius': '12px' }}>
+          <Swiper.Item>
+            <div
+              // 点击 Banner 直接触发跳转逻辑，通过反引号嵌入酒店 ID
+              onClick={() => navigate(`/detail/${bannerHotel.id}`)}
+              style={{ position: 'relative', cursor: 'pointer' }}
+            >
+              <Image
+                src={bannerHotel.imageurl} // 使用 mock 数据中的 banner 大图
+                alt="酒店广告"
+                fit="cover"
+                style={{ width: '100%', height: '160px', borderRadius: '12px' }}
+              />
+              {/* 在 Banner 上方叠加文字提示 */}
+              <div style={{
+                position: 'absolute',
+                bottom: '10px',
+                left: '10px',
+                color: '#fff',
+                textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+                fontWeight: 'bold'
+              }}>
+                今日特惠：{bannerHotel.name.cn}
+              </div>
+            </div>
+          </Swiper.Item>
+        </Swiper>
+      </div>
+    );
+  };
 
   return (
     <div className="home-page">
       {/* 1. 顶部 Banner 区域 */}
-      <div className="banner">
-        <img src={bannerHotel.imageurl} alt="hotel banner" />
-        <div className="banner-mask">
-          <span className="banner-text">推荐：{bannerHotel.name.cn}</span>
-        </div>
-      </div>
+      {renderBanner()}
 
       {/* 2. 搜索卡片区域 */}
       <div className="search-container">
