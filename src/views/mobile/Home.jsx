@@ -12,7 +12,107 @@ export default function MobileHome() {
   const [calendarVisible, setCalendarVisible] = useState(false);
   // 状态：存储选中的日期范围
   const [dateRange, setDateRange] = useState(null);
+  // 状态：存储当前城市
+  const [currentCity, setCurrentCity] = useState('上海');
+  // 状态：定位加载中
+  const [locating, setLocating] = useState(false);
+  // 从 mock 数据中随机选一个酒店作为 Banner 推荐
   const bannerHotel = mockHotels[Math.floor(Math.random() * mockHotels.length)];
+
+  // 获取当前位置的函数
+  const handleGetLocation = () => {
+    // 检查浏览器是否支持地理定位
+    if (!navigator.geolocation) {
+      Toast.show({
+        icon: 'fail',
+        content: '您的浏览器不支持地理定位',
+      });
+      return;
+    }
+
+    setLocating(true);
+    Toast.show({
+      icon: 'loading',
+      content: '定位中...',
+      duration: 0, // 不自动关闭
+    });
+
+    navigator.geolocation.getCurrentPosition(
+      // 成功获取位置
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        console.log('获取到的坐标：', latitude, longitude);
+
+        try {
+          // 使用URLSearchParams构建查询参数，发送GET请求
+          const params = new URLSearchParams({
+            latitude,
+            longitude
+          });
+          const response = await fetch(`/api/location/geocode?${params}`);
+
+          if (!response.ok) {
+            throw new Error('后端接口调用失败');
+          }
+
+          const data = await response.json();
+          
+          // 后端返回格式：{ ok: true, location: { city: '上海市', adcode: '310100' } }
+          if (data.ok && data.location && data.location.city) {
+            setCurrentCity(data.location.city);
+            Toast.clear();
+            Toast.show({
+              icon: 'success',
+              content: `定位成功：${data.location.city}`,
+            });
+          } else {
+            throw new Error(data.message || '解析位置失败');
+          }
+        } catch (error) {
+          console.error('定位失败：', error);
+          Toast.clear();
+          Toast.show({
+            icon: 'fail',
+            content: '定位失败，请稍后重试',
+          });
+        } finally {
+          setLocating(false);
+        }
+      },
+      // 获取位置失败
+      (error) => {
+        console.error('定位失败：', error);
+        setLocating(false);
+        Toast.clear();
+        
+        let errorMsg = '定位失败';
+        switch(error.code) {
+          case error.PERMISSION_DENIED:
+            errorMsg = '用户拒绝了定位请求';
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMsg = '位置信息不可用';
+            break;
+          case error.TIMEOUT:
+            errorMsg = '定位请求超时';
+            break;
+          default:
+            errorMsg = '未知的定位错误';
+        }
+        
+        Toast.show({
+          icon: 'fail',
+          content: errorMsg,
+        });
+      },
+      // 定位选项
+      {
+        enableHighAccuracy: true, // 启用高精度
+        timeout: 10000, // 超时时间10秒
+        maximumAge: 0 // 不使用缓存位置
+      }
+    );
+  };
 
   // 处理查询点击
   const handleSearch = () => {
@@ -71,9 +171,13 @@ export default function MobileHome() {
       <div className="search-container">
         {/* 城市/定位 */}
         <div className="search-row border-bottom">
-          <span className="city">上海</span>
-          <div className="location">
-            <EnvironmentOutline /> 我的位置
+          <span className="city">{currentCity}</span>
+          <div 
+            className="location" 
+            onClick={handleGetLocation}
+            style={{ cursor: 'pointer', opacity: locating ? 0.5 : 1 }}
+          >
+            <EnvironmentOutline /> {locating ? '定位中...' : '我的位置'}
           </div>
         </div>
 
