@@ -1,0 +1,42 @@
+.login-wrapper {
+  padding: 40px 24px;
+  background-color: #fff;
+  min-height: 100vh;
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.login-header img {
+  width: 120px;
+  margin-bottom: 12px;
+}
+
+.login-header p {
+  color: #666;
+  font-size: 14px;
+}
+
+.login-submit {
+  margin-top: 20px;
+  border-radius: 25px; /* 圆角大按钮 */
+  height: 48px;
+}
+
+.login-footer {
+  margin-top: 60px;
+  text-align: center;
+  color: #999;
+  font-size: 13px;
+}
+
+.other-methods {
+  margin-top: 15px;
+}
+
+.separator {
+  margin: 0 15px;
+  color: #eee;
+}
