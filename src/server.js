@@ -21,7 +21,7 @@ app.get("/health", (req, res) => {
     res.end();
 });
 const port = process.env.PORT;
-const server = app.listen(port, async() => {
+const server = app.listen(port, "0.0.0.0",async() => {
     console.log(`Server is running on port ${port}`);
     // 测试 atcode 插入
 })

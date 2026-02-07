@@ -77,8 +77,18 @@ export function mergeSameStation(stations) {
     // 转换为数组并按最小距离排序
     return Object.values(stationMap).sort((a, b) => a.distance - b.distance);
 }
-
-
+// 计算两点间的距离，使用 Haversine 公式
+export function haversine(lat1, lon1, lat2, lon2){
+    const toRad = v => v * Math.PI / 180;
+    const R = 6371000; // earth meters
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+}
 
 // // test
 // const locatins_list = [
