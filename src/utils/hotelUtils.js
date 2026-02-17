@@ -18,10 +18,17 @@ import { mergeSameStation } from "./util.js";
  *   openDate?: string,         // 开业时间 (YYYY-MM-DD)
  *   star?: number,             // 星级 0~5
  *   minPrice?: number,         // 最低价
+ *   adcode?: string,           // 行政区划代码
+ *   merchant_id?: BigInt,      // 商户ID（添加酒店时可选，用于标识商户）
  * }
  * 
- * TODO: 需要添加 userId（商户ID）字段来标识上传该酒店的商户
- * TODO: 审核后补充经纬度 - 在审核员审核完成后，如果经纬度为空，调用高德API获取
+ * 返回值：
+ * {
+ *   hotel: {酒店记录},
+ *   hotelInfo: {酒店扩展信息},
+ *   success: true,
+ *   message: string
+ * }
  */
 export async function addHotel(hotelData) {
     // 验证必填字段
@@ -29,17 +36,14 @@ export async function addHotel(hotelData) {
     if (!name || !address) {
         throw new Error('缺少必填字段: name, address');
     }
-
-    // TODO: 从 request context 或参数中获取商户ID (userId)
-    // const { userId } = context; // 需要实现
     
     try {
-        const { latitude, longitude } = hotelData;
+        const { latitude, longitude, merchant_id } = hotelData;
         
         // 计算 geohash (仅当有坐标时)
         let geohash = null;
         if (latitude !== undefined && longitude !== undefined) {
-            geohash = ngeohash.encode(latitude,longitude,12)
+            geohash = ngeohash.encode(latitude, longitude, 12);
         }
 
         // 开启事务，同时写入 hotel 和 hotel_info
@@ -55,6 +59,7 @@ export async function addHotel(hotelData) {
                     adcode: hotelData.adcode || null,
                     star: hotelData.star || 0,
                     min_price: hotelData.minPrice || 0,
+                    merchant_id: merchant_id || null,  // 如果提供了商户ID，则关联
                     audit_status: 0,  // 默认待审核
                     status: 0,        // 默认下架
                 }

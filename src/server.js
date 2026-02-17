@@ -7,6 +7,8 @@ dotenv.config();
 import hotelRoutes from './routes/HotelRoutes.js';
 import geoRoutes from './routes/geoRoutes.js';
 import userRoutes from './routes/userRoutes.js'
+import merchantRoutes from './routes/merchantRoutes.js'
+import adminRoutes from './routes/adminRoutes.js'
 // 全局 BigInt 序列化支持
 BigInt.prototype.toJSON = function() {
     return this.toString();
@@ -16,7 +18,9 @@ const app = express();
 app.use(express.json());
 app.use('/hotels', hotelRoutes);
 app.use('/geo', geoRoutes);
-app.use('/user',userRoutes)
+app.use('/user', userRoutes);
+app.use('/merchant', merchantRoutes);
+app.use("/admin",adminRoutes)
 app.get("/health", (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     res.send(JSON.stringify({ message: "Hello from server! it's healthy" }));
