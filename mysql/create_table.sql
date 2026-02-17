@@ -66,3 +66,16 @@ CREATE TABLE `users` (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS hotel_review_reason (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+  hotel_id BIGINT NOT NULL COMMENT '酒店ID',
+  action_type ENUM('audit', 'publish', 'offline') NOT NULL COMMENT '动作类型',
+  review_result ENUM('pass', 'reject') NOT NULL COMMENT '审核结果',
+  reason VARCHAR(500) NULL COMMENT '不通过原因（reject时必填）',
+  operator_user_id BIGINT NOT NULL COMMENT '审核员用户ID',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_hotel_action (hotel_id, action_type),
+  INDEX idx_operator (operator_user_id),
+  CONSTRAINT fk_review_reason_hotel FOREIGN KEY (hotel_id) REFERENCES hotel(id) ON DELETE CASCADE,
+  CONSTRAINT fk_review_reason_operator FOREIGN KEY (operator_user_id) REFERENCES users(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='酒店审核工单理由记录';
