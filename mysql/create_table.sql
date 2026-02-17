@@ -79,3 +79,61 @@ CREATE TABLE IF NOT EXISTS hotel_review_reason (
   CONSTRAINT fk_review_reason_hotel FOREIGN KEY (hotel_id) REFERENCES hotel(id) ON DELETE CASCADE,
   CONSTRAINT fk_review_reason_operator FOREIGN KEY (operator_user_id) REFERENCES users(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='酒店审核工单理由记录';
+CREATE TABLE hotel_image (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+
+  hotel_id BIGINT NOT NULL,
+  room_type_id BIGINT DEFAULT NULL,
+
+  image_url VARCHAR(500) NOT NULL,
+
+  image_type TINYINT NOT NULL DEFAULT 0 COMMENT '图片类型 0酒店Banner图片 1房型图片 2详情图片',
+
+  sort_order INT NOT NULL DEFAULT 0,
+
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  INDEX idx_hotel_id (hotel_id),
+  INDEX idx_room_type_id (room_type_id),
+  INDEX idx_image_type (image_type),
+  INDEX idx_hotel_type (hotel_id, image_type)
+);
+CREATE TABLE hotel_room_type (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+
+  hotel_id BIGINT NOT NULL,
+
+  name VARCHAR(100) NOT NULL,
+  -- 例：豪华大床房 / 标准双床房
+
+  bed_type TINYINT NOT NULL DEFAULT 0,
+  -- 0=UNKNOWN 1=KING(大床) 2=TWIN(双床) 3=QUEEN 4=OTHER
+
+  capacity INT NOT NULL DEFAULT 2,
+  -- 可住人数
+
+  breakfast_included TINYINT NOT NULL DEFAULT 0,
+  -- 0=不含早 1=含早
+
+  refundable TINYINT NOT NULL DEFAULT 1,
+  -- 0=不可取消 1=可取消（DDL 冲刺用这个就够）
+
+  price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  -- 房型价格（以后你要做按日期库存/价格可以再扩展）
+
+  stock INT NOT NULL DEFAULT 0,
+  -- 简化库存（不做按天库存时先用它）
+
+  status TINYINT NOT NULL DEFAULT 1,
+  -- 1=上架 0=下架
+
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  INDEX idx_hotel_id (hotel_id),
+  INDEX idx_hotel_status (hotel_id, status),
+  INDEX idx_price (price),
+
+  CONSTRAINT fk_room_type_hotel FOREIGN KEY (hotel_id) REFERENCES hotel(id)
+);
+
