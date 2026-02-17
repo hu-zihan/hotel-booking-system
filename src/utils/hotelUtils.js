@@ -3,6 +3,7 @@ import { GeoHash } from "geohash";
 import { prisma } from "../config/prisma.js";
 import ngeohash from 'ngeohash';
 import { mergeSameStation } from "./util.js";
+import { upload as uploadToOSS } from "./ossUtils.js";
 /**
  * 添加酒店
  * 
@@ -166,4 +167,55 @@ function distanceMeter(lat1, lon1, lat2, lon2) {
     Math.sin(dLon / 2) ** 2;
 
   return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+/**
+ * 上传酒店 Banner 图片
+ * 
+ * @param {BigInt} hotelId - 酒店ID
+ * @param {Buffer} fileBuffer - 文件Buffer（来自multer）
+ * @param {string} originalName - 原始文件名
+ * @param {number} sortOrder - 排序顺序，默认为0
+ * @returns {Promise<{url: string, imageRecord: object}>} 图片URL和数据库记录
+ */
+export async function uploadHotelBanner(hotelId, fileBuffer, originalName, sortOrder = 0) {
+    if (!hotelId || !fileBuffer) {
+        throw new Error('缺少必填参数: hotelId 或 fileBuffer');
+    }
+
+    // 验证酒店是否存在
+    const hotel = await prisma.hotel.findUnique({
+        where: { id: BigInt(hotelId) }
+    });
+
+    if (!hotel) {
+        throw new Error('酒店不存在');
+    }
+
+    // 生成唯一文件名
+    const timestamp = Date.now();
+    const ext = originalName.split('.').pop();
+    const fileName = `hotels/${hotelId}/banner_${timestamp}.${ext}`;
+
+    // 上传到 OSS
+    const uploadResult = await uploadToOSS(fileBuffer, fileName);
+
+    // 保存到数据库
+    const imageRecord = await prisma.hotel_image.create({
+        data: {
+            hotel_id: BigInt(hotelId),
+            image_url: uploadResult.url,
+            image_type: 'banner',
+            sort_order: sortOrder
+        }
+    });
+
+    return {
+        url: uploadResult.url,
+        imageRecord: {
+            ...imageRecord,
+            id: imageRecord.id.toString(),
+            hotel_id: imageRecord.hotel_id.toString()
+        }
+    };
 }

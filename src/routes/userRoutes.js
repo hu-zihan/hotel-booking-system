@@ -18,8 +18,8 @@ const roleNameMap = {
 router.post("/register",async (req, res) => {
     const { username, password,role = 1} = req.body;
     if (!username || !password) {
+        res.status(400).json({ error: "Username and password are required",ok:false });
     }
-    //TODO: add password hashing
     const existingUser = await prisma.users.findUnique({
         where: { username }
     });

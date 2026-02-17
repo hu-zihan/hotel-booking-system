@@ -24,17 +24,92 @@ async function put(file) {
         console.error('Error uploading file:', error);
     }
 }
-export async function upload(file) {
-    try{
+export async function upload(file, fileName) {
+    try {
         console.log("starting file upload...");
-        const result = await client.put("hotels/",file);
+        
+        // 支持 Buffer 和 文件路径
+        let uploadData;
+        if (Buffer.isBuffer(file)) {
+            uploadData = file;
+        } else if (typeof file === 'string') {
+            uploadData = path.join(process.cwd(), file);
+        } else {
+            uploadData = file;
+        }
+        
+        const result = await client.put(fileName, uploadData);
         console.log("Upload successful:", result);
-        if(result.status === 200){
-            return result.url;
+        
+        if (result.status === 200) {
+            return {
+                url: result.url,
+                ...result
+            };
         }
         throw new Error(`Failed to upload file, status code: ${result.status}`);
-    }catch(error){
-         console.error('Error uploading file:', error);
-         throw error;
+    } catch (error) {
+        console.error('Error uploading file:', error);
+        throw error;
+    }
+}
+
+/**
+ * 根据文件 URL 删除 OSS 中的文件
+ * @param {string} fileUrl - OSS 文件的完整 URL (从数据库中获取)
+ * @returns {Promise<boolean>} 删除是否成功
+ */
+export async function deleteByUrl(fileUrl) {
+    try {
+        if (!fileUrl) {
+            throw new Error('文件 URL 不能为空');
+        }
+
+        // 从 URL 中提取文件路径
+        // 例如: https://yisu-hotel.oss-cn-hangzhou.aliyuncs.com/hotels/123/banner_1234567890.jpg
+        // 提取出: hotels/123/banner_1234567890.jpg
+        const url = new URL(fileUrl);
+        const fileName = url.pathname.substring(1); // 去掉开头的 /
+
+        console.log(`Deleting file from OSS: ${fileName}`);
+        
+        const result = await client.delete(fileName);
+        
+        if (result.res && result.res.status === 204) {
+            console.log(`File deleted successfully: ${fileName}`);
+            return true;
+        }
+        
+        throw new Error(`Failed to delete file, status code: ${result.res?.status}`);
+    } catch (error) {
+        console.error('Error deleting file:', error);
+        throw error;
+    }
+}
+
+/**
+ * 根据文件名删除 OSS 中的文件
+ * @param {string} fileName - OSS 中的文件路径 (例如: hotels/123/banner_1234567890.jpg)
+ * @returns {Promise<boolean>} 删除是否成功
+ */
+export async function deleteByFileName(fileName) {
+    try {
+        if (!fileName) {
+            throw new Error('文件名不能为空');
+        }
+
+        console.log(`Deleting file from OSS: ${fileName}`);
+        
+        const result = await client.delete(fileName);
+        
+        if (result.res && result.res.status === 204) {
+            console.log(`File deleted successfully: ${fileName}`);
+            return true;
+        }
+        
+        throw new Error(`Failed to delete file, status code: ${result.res?.status}`);
+    } catch (error) {
+        console.error('Error deleting file:', error);
+        throw error;
     }
 }
