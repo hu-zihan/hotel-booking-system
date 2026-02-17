@@ -3,6 +3,7 @@ import { prisma } from '../config/prisma.js';
 import { addHotel,getHotelById,searchHotelStationById} from '../utils/hotelUtils.js';
 import { ok } from 'node:assert';
 import { info } from 'node:console';
+import { authenticateToken } from '../middleware/authMiddleware.js';
 const router = express.Router();
 
 // Define your hotel-related routes here
@@ -32,7 +33,7 @@ router.post("/addHotel", async (req, res) => {
         res.status(500).json({ error: '添加酒店失败' });
     }
 });
-router.get("/getHotelInfo", async (req, res) => {
+router.get("/getHotelInfo" ,async (req, res) => {
     try {
         const {hotelId} = req.query;
         if (!hotelId) {

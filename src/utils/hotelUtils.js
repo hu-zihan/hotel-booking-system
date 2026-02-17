@@ -3,7 +3,7 @@ import { GeoHash } from "geohash";
 import { prisma } from "../config/prisma.js";
 import ngeohash from 'ngeohash';
 import { mergeSameStation } from "./util.js";
-import { upload as uploadToOSS } from "./ossUtils.js";
+import { upload as uploadToOSS, deleteByUrl } from "./ossUtils.js";
 /**
  * 添加酒店
  * 
@@ -109,9 +109,44 @@ export async function getHotelById(hotelId) {
         throw new Error('酒店不存在');
     }
     
+    // 获取所有图片
+    const hotelImage = await prisma.hotel_image.findMany({
+        where: { hotel_id: hotel.id },
+        select: {
+            id: true,
+            image_url: true,
+            image_type: true,
+            room_type_id: true,
+            sort_order: true
+        },
+        orderBy: { sort_order: 'asc' }
+    });
+    
+    // 分类图片
+    // image_type: 0 = banner, 1 = details, 2 = room_type
+    const bannerUrls = hotelImage
+        .filter(img => img.image_type === 0)
+        .map(img => img.image_url);
+    
+    // 房型图片按 room_type_id 分组
+    const roomTypeImages = hotelImage
+        .filter(img => img.room_type_id !== null)
+        .reduce((acc, img) => {
+            const roomTypeId = img.room_type_id.toString();
+            if (!acc[roomTypeId]) {
+                acc[roomTypeId] = [];
+            }
+            acc[roomTypeId].push(img.image_url);
+            return acc;
+        }, {});
+    
     return {
-            ...hotel,
-            id: hotel.id.toString() // BigInt 转字符串
+        ...hotel,
+        id: hotel.id.toString(), // BigInt 转字符串
+        images: {
+            bannerUrls,      // Banner 图片 URL 数组
+            roomTypeImages   // 房型图片对象 { roomTypeId: [url1, url2, ...] }
+        }
     };
 }
 function geohashCandidate(lat,lon,precision=6){
@@ -200,12 +235,12 @@ export async function uploadHotelBanner(hotelId, fileBuffer, originalName, sortO
     // 上传到 OSS
     const uploadResult = await uploadToOSS(fileBuffer, fileName);
 
-    // 保存到数据库
+    // 保存到数据库（image_type: 0 = banner）
     const imageRecord = await prisma.hotel_image.create({
         data: {
             hotel_id: BigInt(hotelId),
             image_url: uploadResult.url,
-            image_type: 'banner',
+            image_type: 0,  // banner 类型
             sort_order: sortOrder
         }
     });
