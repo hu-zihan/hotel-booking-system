@@ -49,3 +49,20 @@ CREATE TABLE hotel_info (
     REFERENCES hotel(id)
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='酒店扩展信息表';
+CREATE TABLE `users` (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  -- 用户角色
+  role ENUM('consumer', 'merchant', 'auditor') NOT NULL COMMENT '用户角色',
+  -- 登录凭证（任选其一登录）
+  username VARCHAR(64) NOT NULL UNIQUE COMMENT '用户名',
+  phone VARCHAR(20) UNIQUE COMMENT '手机号',
+  email VARCHAR(128) UNIQUE COMMENT '邮箱',
+  password_hash VARCHAR(255) NOT NULL COMMENT '密码hash',
+  -- 状态控制
+  status ENUM('active', 'disabled') NOT NULL DEFAULT 'active' COMMENT '账号状态',
+  -- 展示信息
+  display_name VARCHAR(64) COMMENT '展示名/商户名/审核员名',
+  avatar_url VARCHAR(255) COMMENT '头像',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);

@@ -20,5 +20,7 @@ console.log("✅ Prisma MariaDB adapter configured:", {
   user: process.env.DB_USER,
 });
 const prisma = new PrismaClient({ adapter });
-
-export { prisma }
+async function disConnectDB(){
+  await prisma.$disconnect();
+}
+export { prisma, disConnectDB }

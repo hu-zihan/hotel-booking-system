@@ -13,9 +13,11 @@
     "@prisma/adapter-mariadb": "^7.3.0",
     "@prisma/client": "^7.3.0",
     "address-parse": "^1.2.19",
+    "bcrypt": "^6.0.0",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "geohash": "^0.0.1",
+    "jsonwebtoken": "^9.0.3",
     "mysql2": "^3.16.2",
     "ngeohash": "^0.6.3"
   },

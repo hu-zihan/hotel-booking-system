@@ -1,3 +1,4 @@
+-- Active: 1769675466097@@127.0.0.1@23306@yisu_hotel_db
 ALTER TABLE station
 ADD COLUMN latitude_d  DECIMAL(10,7) NULL COMMENT '数值纬度',
 ADD COLUMN longitude_d DECIMAL(10,7) NULL COMMENT '数值经度',
@@ -16,7 +17,9 @@ ADD COLUMN geohash VARCHAR(12) NULL COMMENT 'geohash';
 
 
 ALTER TABLE area_adcode_location
-MODIFY COLUMN geohash VARCHAR(10) NULL COMMENT 'geohash';
+ADD COLUMN geohash VARCHAR(10) NULL COMMENT 'geohash',
+ADD INDEX idx_geohash (geohash);
+;
 ALTER TABLE hotel
 MODIFY COLUMN longitude DECIMAL(10,7)  NULL COMMENT '经度',
 MODIFY COLUMN latitude DECIMAL(10,7)  NULL COMMENT '纬度';
