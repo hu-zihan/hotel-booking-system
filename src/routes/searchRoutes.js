@@ -13,6 +13,8 @@ const router = express.Router();
  * - adcode: 行政区代码筛选
  * - minPrice: 最低价格
  * - maxPrice: 最高价格
+ * - minStar: 最低星级（0-5）
+ * - maxStar: 最高星级（0-5）
  * - latitude: 用户纬度
  * - longitude: 用户经度
  * - radiusKm: 距离影响半径（公里，默认 20）
@@ -26,6 +28,8 @@ router.get('/hotels', async (req, res) => {
             adcode,
             minPrice,
             maxPrice,
+            minStar,
+            maxStar,
             latitude,
             longitude,
             radiusKm = 20
@@ -68,6 +72,14 @@ router.get('/hotels', async (req, res) => {
             if (minPrice) priceRange.gte = parseFloat(minPrice);
             if (maxPrice) priceRange.lte = parseFloat(maxPrice);
             filter.push({ range: { min_price: priceRange } });
+        }
+
+        // 星级区间筛选
+        if (minStar || maxStar) {
+            const starRange = {};
+            if (minStar) starRange.gte = parseInt(minStar);
+            if (maxStar) starRange.lte = parseInt(maxStar);
+            filter.push({ range: { star: starRange } });
         }
 
         // 地理位置筛选和排序
@@ -171,6 +183,7 @@ router.get('/hotels', async (req, res) => {
                     keyword: q,
                     adcode,
                     priceRange: { minPrice, maxPrice },
+                    starRange: { minStar, maxStar },
                     location: latitude && longitude ? { latitude, longitude, radiusKm } : null
                 }
             }
