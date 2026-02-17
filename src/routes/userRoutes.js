@@ -1,6 +1,7 @@
+
 import express from 'express';
 import bcrypt from "bcrypt";
-import { prisma } from '../config/prisma';
+import { prisma } from '../config/prisma.js';
 import jwt from "jsonwebtoken";
 const router = express.Router();
 const SALT_ROUNDS = 12;
@@ -24,7 +25,7 @@ router.post("/register",async (req, res) => {
         where: { username }
     });
     if (existingUser) {
-        return res.status(400).json({ error: "Username already exists" ,ok : False});
+        return res.status(400).json({ error: "Username already exists" ,ok : false});
     }
     const displayed_id = Math.floor(100000 + Math.random() * 900000); // 生成一个6位数的随机ID
     const display_name = `${roleNameMap[role] || "用户"}${displayed_id}`;
@@ -38,7 +39,7 @@ router.post("/register",async (req, res) => {
                 display_name: display_name
             }
         });
-        res.json({ message: "User registered successfully", user: { id: newUser.id, username: newUser.username, role: newUser.role },ok : True});
+        res.json({ message: "User registered successfully", data: { id: newUser.id, username: newUser.username, role: newUser.role, display_name: newUser.display_name }, ok: true });
     } catch (error) {
         console.error("Error registering user:", error);
         res.status(500).json({ error: "Failed to register user" });
@@ -52,17 +53,17 @@ router.post("/login",async (req, res) => {
     try{
         const user = await prisma.users.findUnique({
             where :{username},
-            select: {id:true,username:true,password_hash:true,role:true}
+            select: {id:true,username:true,password_hash:true,role:true,display_name:true}
         })
         if(!user){
-            return res.status(401).json({error:"Invalid username or password",ok:False})
+            return res.status(401).json({error:"Invalid username or password",ok:false})
         }
         const matched = await bcrypt.compare(password,user.password_hash);
         if(!matched){
-            return res.status(401).json({error:"Invalid username or password",ok:False})
+            return res.status(401).json({error:"Invalid username or password",ok:false})
         }
         const token = jwt.sign({id:user.id,username:user.username,role:user.role},process.env.JWT_SECRET,{expiresIn:process.env.JWT_EXPIRES_IN || "7d"});
-        return res.json({message:"Login successful",user:{id:user.id,username:user.username,role:user.role},token,ok:True});
+        return res.json({message:"Login successful",data:{user_id:user.id,username:user.username,role:user.role,display_name:user.display_name},token,ok:true});
     }
     catch(error){
         console.error("Error logging in:", error);
