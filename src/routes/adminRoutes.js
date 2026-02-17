@@ -58,6 +58,48 @@ router.post("/hotels/:hotelId/audit", authenticateToken, authorizeRoles("auditor
     }
 });
 router.post("/hotels/:hotelId/online", authenticateToken, authorizeRoles("auditor"), async (req, res) => {
-
+    const { hotelId } = req.params;
+    try{
+        const hotel = await prisma.hotel.findUnique({
+            where : {id: BigInt(hotelId)}
+        });
+        if(!hotel){
+            return res.status(404).json({error: "Hotel not found",ok:false});
+        }
+        if(hotel.audit_status !== 1){
+            return res.status(400).json({error: "Hotel must be approved before going online",ok:false});
+        }
+        const updatedHotel = await prisma.hotel.update({
+            where : {id: BigInt(hotelId)},
+            data : {
+                status: 1,
+            }});
+        return res.json({ok:true,message:`Hotel ${hotelId} is now online`})
+    }
+    catch(error){
+        console.error('酒店上线失败:', error);
+        return res.status(500).json({ error: '酒店上线失败', ok: false ,error_details: error.message});
+    }
+});
+router.post("/hotels/:hotelId/offline", authenticateToken, authorizeRoles("auditor"), async (req, res) => {
+    const { hotelId } = req.params;
+    try{
+        const hotel = await prisma.hotel.findUnique({
+            where : {id: BigInt(hotelId)}
+        });
+        if(!hotel){
+            return res.status(404).json({error: "Hotel not found",ok:false});
+        }
+        const updatedHotel = await prisma.hotel.update({
+            where : {id: BigInt(hotelId)},
+            data : {
+                status: 0,
+            }});
+        return res.json({ok:true,message:`Hotel ${hotelId} is now offline`})
+    }
+    catch(error){
+        console.error('酒店下线失败:', error);
+        return res.status(500).json({ error: '酒店下线失败', ok: false ,error_details: error.message});
+    }
 });
 export default router;
