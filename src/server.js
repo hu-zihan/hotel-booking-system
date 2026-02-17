@@ -9,6 +9,10 @@ import geoRoutes from './routes/geoRoutes.js';
 import userRoutes from './routes/userRoutes.js'
 import merchantRoutes from './routes/merchantRoutes.js'
 import adminRoutes from './routes/adminRoutes.js'
+import searchRoutes from './routes/searchRoutes.js'
+import { testESConnection } from './config/elasticsearchConfig.js';
+import { initHotelIndex, syncAllHotelsToES } from './utils/esHotelSync.js';
+
 // 全局 BigInt 序列化支持
 BigInt.prototype.toJSON = function() {
     return this.toString();
@@ -21,15 +25,27 @@ app.use('/geo', geoRoutes);
 app.use('/user', userRoutes);
 app.use('/merchant', merchantRoutes);
 app.use("/admin",adminRoutes)
+app.use('/search', searchRoutes);
+
 app.get("/health", (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     res.send(JSON.stringify({ message: "Hello from server! it's healthy" }));
     res.end();
 });
+
 const port = process.env.PORT;
 const server = app.listen(port, "0.0.0.0",async() => {
     console.log(`Server is running on port ${port}`);
-    // 测试 atcode 插入
+    
+    // 初始化 Elasticsearch
+    try {
+        await testESConnection();
+        await initHotelIndex();
+        await syncAllHotelsToES({ onlyApproved: true });
+    } catch (error) {
+        console.error('Elasticsearch initialization warning:', error.message);
+        console.log('⚠️  Search functionality may not be available');
+    }
 })
 
 process.on("unhandledRejection", (reason, promise) => {

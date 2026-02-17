@@ -254,3 +254,102 @@ export async function uploadHotelBanner(hotelId, fileBuffer, originalName, sortO
         }
     };
 }
+
+/**
+ * 更新酒店信息（商户编辑页面使用）
+ * 
+ * @param {BigInt} hotelId - 酒店ID
+ * @param {Object} updateData - 更新数据
+ * @param {string} updateData.name - 酒店名称
+ * @param {string} updateData.address - 详细地址
+ * @param {number} updateData.latitude - 纬度
+ * @param {number} updateData.longitude - 经度
+ * @param {string} updateData.adcode - 行政区划代码
+ * @param {number} updateData.star - 星级 0~5
+ * @param {number} updateData.minPrice - 最低价
+ * @param {string} updateData.nameEn - 英文名称
+ * @param {string} updateData.phone - 联系电话
+ * @param {string} updateData.openDate - 开业时间 (YYYY-MM-DD)
+ * @param {string} updateData.desc - 酒店简介
+ * @returns {Promise<{hotel: object, hotelInfo: object, success: boolean, message: string}>}
+ */
+export async function updateHotel(hotelId, updateData) {
+    if (!hotelId) {
+        throw new Error('缺少必填参数: hotelId');
+    }
+
+    try {
+        // 验证酒店是否存在
+        const existingHotel = await prisma.hotel.findUnique({
+            where: { id: BigInt(hotelId) },
+            include: { hotel_info: true }
+        });
+
+        if (!existingHotel) {
+            throw new Error('酒店不存在');
+        }
+
+        const { latitude, longitude } = updateData;
+        
+        // 如果坐标更新了，重新计算 geohash
+        let geohash = existingHotel.geohash;
+        if (latitude !== undefined && longitude !== undefined) {
+            geohash = ngeohash.encode(parseFloat(latitude), parseFloat(longitude), 12);
+        }
+
+        // 开启事务，同时更新 hotel 和 hotel_info
+        const result = await prisma.$transaction(async (tx) => {
+            // 准备 hotel 表的更新数据
+            const hotelUpdateData = {};
+            if (updateData.name !== undefined) hotelUpdateData.name = updateData.name;
+            if (updateData.address !== undefined) hotelUpdateData.address = updateData.address;
+            if (updateData.latitude !== undefined) hotelUpdateData.latitude = parseFloat(updateData.latitude);
+            if (updateData.longitude !== undefined) hotelUpdateData.longitude = parseFloat(updateData.longitude);
+            if (updateData.adcode !== undefined) hotelUpdateData.adcode = updateData.adcode;
+            if (updateData.star !== undefined) hotelUpdateData.star = updateData.star;
+            if (updateData.minPrice !== undefined) hotelUpdateData.min_price = updateData.minPrice;
+            if (geohash !== existingHotel.geohash) hotelUpdateData.geohash = geohash;
+            hotelUpdateData.updated_at = new Date();
+
+            // 1. 更新酒店主记录
+            const hotel = await tx.hotel.update({
+                where: { id: BigInt(hotelId) },
+                data: hotelUpdateData
+            });
+
+            // 准备 hotel_info 表的更新数据
+            const infoUpdateData = {};
+            if (updateData.nameEn !== undefined) infoUpdateData.name_en = updateData.nameEn;
+            if (updateData.phone !== undefined) infoUpdateData.phone = updateData.phone;
+            if (updateData.openDate !== undefined) {
+                infoUpdateData.open_date = updateData.openDate ? new Date(updateData.openDate) : null;
+            }
+            if (updateData.desc !== undefined) infoUpdateData.desc = updateData.desc;
+            infoUpdateData.updated_at = new Date();
+
+            // 2. 更新酒店扩展信息记录
+            const hotelInfo = await tx.hotel_info.update({
+                where: { hotel_id: BigInt(hotelId) },
+                data: infoUpdateData
+            });
+
+            return {
+                hotel: {
+                    ...hotel,
+                    id: hotel.id.toString()
+                },
+                hotelInfo: {
+                    ...hotelInfo,
+                    hotel_id: hotelInfo.hotel_id.toString()
+                },
+                success: true,
+                message: `酒店 "${hotel.name}" 信息已更新`
+            };
+        });
+
+        return result;
+    } catch (error) {
+        console.error('更新酒店失败:', error);
+        throw error;
+    }
+}
