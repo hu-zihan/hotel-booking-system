@@ -29,6 +29,7 @@ const hotelMappings = {
         desc: { type: 'text' },
         phone: { type: 'keyword' },
         name_en: { type: 'text' },
+        banner_urls: { type: 'keyword' },  // Banner 图片 URL 数组
         created_at: { type: 'date' },
         updated_at: { type: 'date' }
     }
@@ -63,6 +64,18 @@ export async function syncHotelToES(hotelId) {
             throw new Error('Hotel not found');
         }
 
+        // 获取酒店的 Banner 图片
+        const bannerImages = await prisma.hotel_image.findMany({
+            where: {
+                hotel_id: BigInt(hotelId),
+                image_type: 0  // Banner 类型
+            },
+            orderBy: { sort_order: 'asc' },
+            select: { image_url: true }
+        });
+
+        const bannerUrls = bannerImages.map(img => img.image_url);
+
         const document = {
             id: hotel.id.toString(),
             name: hotel.name,
@@ -81,6 +94,7 @@ export async function syncHotelToES(hotelId) {
             desc: hotel.hotel_info?.desc,
             phone: hotel.hotel_info?.phone,
             name_en: hotel.hotel_info?.name_en,
+            banner_urls: bannerUrls,  // 添加 Banner URLs
             created_at: hotel.created_at,
             updated_at: hotel.updated_at
         };
@@ -92,7 +106,7 @@ export async function syncHotelToES(hotelId) {
             refresh: true
         });
 
-        console.log(`✅ Hotel ${hotelId} synced to ES`);
+        console.log(`✅ Hotel ${hotelId} synced to ES (with ${bannerUrls.length} banners)`);
         return true;
     } catch (error) {
         console.error(`❌ Failed to sync hotel ${hotelId}:`, error);
@@ -128,6 +142,29 @@ export async function syncAllHotelsToES(options = {}) {
             return { synced: 0, total: 0 };
         }
 
+        // 获取所有酒店的 Banner 图片
+        const allBanners = await prisma.hotel_image.findMany({
+            where: {
+                hotel_id: { in: hotels.map(h => h.id) },
+                image_type: 0  // Banner 类型
+            },
+            orderBy: { sort_order: 'asc' },
+            select: {
+                hotel_id: true,
+                image_url: true
+            }
+        });
+
+        // 按酒店ID分组 Banner
+        const bannersByHotel = allBanners.reduce((acc, banner) => {
+            const hotelId = banner.hotel_id.toString();
+            if (!acc[hotelId]) {
+                acc[hotelId] = [];
+            }
+            acc[hotelId].push(banner.image_url);
+            return acc;
+        }, {});
+
         // 转换为 ES 文档格式
         const documents = hotels.map(hotel => ({
             id: hotel.id.toString(),
@@ -147,6 +184,7 @@ export async function syncAllHotelsToES(options = {}) {
             desc: hotel.hotel_info?.desc,
             phone: hotel.hotel_info?.phone,
             name_en: hotel.hotel_info?.name_en,
+            banner_urls: bannersByHotel[hotel.id.toString()] || [],  // 添加 Banner URLs
             created_at: hotel.created_at,
             updated_at: hotel.updated_at
         }));
