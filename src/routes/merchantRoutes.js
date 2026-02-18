@@ -93,7 +93,7 @@ router.post("/hotels/:hotelId/banner", authenticateToken, authorizeRoles("mercha
 
         const hotel = await prisma.hotel.findUnique({ where: { id: BigInt(hotelId) } });
         
-        if (!hotel || hotel.merchant_id !== merchantId) {
+        if (!hotel || BigInt(hotel.merchant_id) !== merchantId) {
             return res.status(403).json({ error: "Permission denied", ok: false });
         }
 
@@ -160,5 +160,34 @@ router.delete("/hotels/:hotelId", authenticateToken, authorizeRoles("merchant"),
         });
     }
 });
-
+router.get("/hotels/:hotelId/review-history",authenticateToken,authorizeRoles("merchant"), async (req, res) => {
+    const {hotelId} = req.params
+    const review_result = prisma.hotel_review_reason.findFirst({
+        where: {
+            hotelId: BigInt(hotelId),
+            review_result: "reject"
+        },
+        select:{
+            reason:true,
+            operator_user_id:true,
+        }
+    })
+    const auditor = prisma.users.findUnique({
+        where : {
+            id: review_result.operator_user_id
+        },
+        select : {
+            display_name:true,
+            avatar_url:true
+        }
+    });
+    return res.json({
+        data: {
+            reason: review_result.reason,
+            auditor: auditor
+        },
+        ok: true
+    })
+    
+});
 export default router;
