@@ -5,7 +5,7 @@ import jwt from "jsonwebtoken";
  * 类似 Spring Security 的拦截器链
  */
 export function authenticateToken(req, res, next) {
-    const authHeader = req.headers["token"];
+    const authHeader = req.headers["authorization"];
     const token = authHeader && authHeader.split(" ")[1]; // Bearer <token>
 
     if (!token) {

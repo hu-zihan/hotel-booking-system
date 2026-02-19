@@ -1,6 +1,7 @@
 
 import express from 'express';
 import dotenv from 'dotenv';
+import cors from 'cors';
 import { testdbConnection,pool } from './config/mysql.js';
 import {prisma} from './config/prisma.js';
 dotenv.config();
@@ -19,6 +20,35 @@ BigInt.prototype.toJSON = function() {
 };
 
 const app = express();
+// CORS 配置
+// 支持通过环境变量 CORS_ORIGIN 指定允许的来源，逗号分隔；
+// 如果未设置，则默认允许常见本地开发源。
+const rawOrigins = process.env.CORS_ORIGIN || 'http://localhost:3000,http://localhost:5173';
+const allowedOrigins = rawOrigins.split(',').map(s => s.trim()).filter(Boolean);
+
+const corsOptions = {
+    origin: function(origin, callback) {
+        // 如果没有 origin（例如 curl 或同源请求），允许。
+        if (!origin) return callback(null, true);
+
+        // 支持通配符 '*' 的场景
+        if (allowedOrigins.length === 1 && allowedOrigins[0] === '*') {
+            return callback(null, true);
+        }
+
+        if (allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true,
+    methods: ['GET','HEAD','PUT','PATCH','POST','DELETE','OPTIONS'],
+    allowedHeaders: ['Content-Type','Authorization','Accept','X-Requested-With']
+};
+
+app.use(cors(corsOptions));
+
 app.use(express.json());
 app.use('/hotels', hotelRoutes);
 app.use('/geo', geoRoutes);

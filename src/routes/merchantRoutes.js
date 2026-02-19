@@ -41,7 +41,7 @@ router.post("/hotels", authenticateToken, authorizeRoles("merchant"), async (req
  */
 router.get("/hotels", authenticateToken, authorizeRoles("merchant"), async (req, res) => {
     try {
-        const merchantId = BigInt(req.user.id);
+        const merchantId = Number(req.user.id);
         const { page = 1, pageSize = 10 } = req.query;
 
         const hotels = await prisma.hotel.findMany({
@@ -59,7 +59,12 @@ router.get("/hotels", authenticateToken, authorizeRoles("merchant"), async (req,
             ok: true
         });
     } catch (error) {
-        return res.status(500).json({ error: "Failed to fetch hotels", ok: false });
+        console.error("GET /merchant/hotels error:", error);
+            return res.status(500).json({
+                error: "Failed to fetch hotels",
+                detail: String(error?.message ?? error),
+                ok: false
+            });
     }
 });
 
@@ -162,17 +167,20 @@ router.delete("/hotels/:hotelId", authenticateToken, authorizeRoles("merchant"),
 });
 router.get("/hotels/:hotelId/review-history",authenticateToken,authorizeRoles("merchant"), async (req, res) => {
     const {hotelId} = req.params
-    const review_result = prisma.hotel_review_reason.findFirst({
+    console.log(`Fetching review history for hotel ID: ${hotelId}`);
+    const review_result = await prisma.hotel_review_reason.findFirst({
         where: {
-            hotelId: BigInt(hotelId),
+            hotel_id: Number(hotelId),
             review_result: "reject"
         },
         select:{
             reason:true,
             operator_user_id:true,
+            created_at:true
         }
     })
-    const auditor = prisma.users.findUnique({
+    console.log("Review result:", review_result);
+    const auditor = await prisma.users.findUnique({
         where : {
             id: review_result.operator_user_id
         },
@@ -184,6 +192,7 @@ router.get("/hotels/:hotelId/review-history",authenticateToken,authorizeRoles("m
     return res.json({
         data: {
             reason: review_result.reason,
+            created_at: review_result.created_at,
             auditor: auditor
         },
         ok: true

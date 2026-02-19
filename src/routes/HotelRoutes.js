@@ -1,8 +1,6 @@
 import express from 'express';
 import { prisma } from '../config/prisma.js';
 import { addHotel,getHotelById,searchHotelStationById} from '../utils/hotelUtils.js';
-import { ok } from 'node:assert';
-import { info } from 'node:console';
 import { authenticateToken } from '../middleware/authMiddleware.js';
 const router = express.Router();
 
