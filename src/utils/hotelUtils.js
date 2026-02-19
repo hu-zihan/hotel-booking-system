@@ -123,7 +123,7 @@ export async function getHotelById(hotelId) {
     });
     
     // 分类图片
-    // image_type: 0 = banner, 1 = details, 2 = room_type
+    // image_type: 0 = banner, 2 = details, 1 = room_type
     const bannerUrls = hotelImage
         .filter(img => img.image_type === 0)
         .map(img => img.image_url);
@@ -138,7 +138,7 @@ export async function getHotelById(hotelId) {
             }
             acc[roomTypeId].push(img.image_url);
             return acc;
-        }, {});
+        }, []);
     
     return {
         ...hotel,
@@ -238,7 +238,7 @@ export async function uploadHotelBanner(hotelId, fileBuffer, originalName, sortO
     // 保存到数据库（image_type: 0 = banner）
     const imageRecord = await prisma.hotel_image.create({
         data: {
-            hotel_id: BigInt(hotelId),
+            hotel_id: Number(hotelId),
             image_url: uploadResult.url,
             image_type: 0,  // banner 类型
             sort_order: sortOrder

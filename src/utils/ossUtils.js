@@ -41,13 +41,7 @@ export async function upload(file, fileName) {
         const result = await client.put(fileName, uploadData);
         console.log("Upload successful:", result);
         
-        if (result.status === 200) {
-            return {
-                url: result.url,
-                ...result
-            };
-        }
-        throw new Error(`Failed to upload file, status code: ${result.status}`);
+        return { url: result.url, ...result };
     } catch (error) {
         console.error('Error uploading file:', error);
         throw error;
