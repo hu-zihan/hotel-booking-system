@@ -213,7 +213,7 @@ function distanceMeter(lat1, lon1, lat2, lon2) {
  * @param {number} sortOrder - 排序顺序，默认为0
  * @returns {Promise<{url: string, imageRecord: object}>} 图片URL和数据库记录
  */
-export async function uploadHotelBanner(hotelId, fileBuffer, originalName, sortOrder = 0) {
+export async function uploadHotelBanner(hotelId, fileBuffer, originalName, sortOrder = 0, image_type = 0) {
     if (!hotelId || !fileBuffer) {
         throw new Error('缺少必填参数: hotelId 或 fileBuffer');
     }
@@ -235,12 +235,12 @@ export async function uploadHotelBanner(hotelId, fileBuffer, originalName, sortO
     // 上传到 OSS
     const uploadResult = await uploadToOSS(fileBuffer, fileName);
 
-    // 保存到数据库（image_type: 0 = banner）
+    // 保存到数据库（image_type: 0 = banner 1 = roomType, 2 = detail）
     const imageRecord = await prisma.hotel_image.create({
         data: {
             hotel_id: Number(hotelId),
             image_url: uploadResult.url,
-            image_type: 0,  // banner 类型
+            image_type: image_type,  // banner 类型
             sort_order: sortOrder
         }
     });

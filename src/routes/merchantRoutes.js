@@ -3,6 +3,7 @@ import multer from 'multer';
 import { prisma } from '../config/prisma.js';
 import { authenticateToken, authorizeRoles } from '../middleware/authMiddleware.js';
 import { addHotel, getHotelById, uploadHotelBanner, updateHotel } from '../utils/hotelUtils.js';
+import { deleteByUrl } from '../utils/ossUtils.js';
 
 const router = express.Router();
 
@@ -98,11 +99,11 @@ router.get("/hotels/:hotelId", authenticateToken, authorizeRoles("merchant"), as
 /**
  * 上传酒店 Banner 图片 - 复用 hotelUtils.uploadHotelBanner
  */
-router.post("/hotels/:hotelId/banner", authenticateToken, authorizeRoles("merchant"), upload.single('banner'), async (req, res) => {
+router.post("/hotels/:hotelId/image", authenticateToken, authorizeRoles("merchant"), upload.single('banner'), async (req, res) => {
     try {
-        const { hotelId } = req.params;
+        const { hotelId} = req.params;
         const merchantId = BigInt(req.user.id);
-
+        const image_type = req.body.image_type ? parseInt(req.body.image_type) : 0;
         const hotel = await prisma.hotel.findUnique({ where: { id: BigInt(hotelId) } });
         
         if (!hotel || BigInt(hotel.merchant_id) !== merchantId) {
@@ -119,7 +120,8 @@ router.post("/hotels/:hotelId/banner", authenticateToken, authorizeRoles("mercha
             Number(hotelId),
             req.file.buffer,
             req.file.originalname,
-            sortOrder
+            sortOrder,
+            image_type
         );
 
         return res.status(201).json({
@@ -242,5 +244,106 @@ router.get("/hotels/:hotelId/review-history",authenticateToken,authorizeRoles("m
     })
     
 });
+router.get("/hotels/:hotelId/images", authenticateToken, authorizeRoles("merchant"), async (req, res) => {
+    const { hotelId } = req.params;
+    const merchantId = Number(req.user.id);
 
+    try {
+        const hotel = await prisma.hotel.findUnique({
+            where: { id: Number(hotelId) }
+        });
+        
+        if(!hotel || hotel.merchant_id !== merchantId){
+            return res.status(403).json({ error: "Permission denied", ok: false });
+        }
+        
+        const images = await prisma.hotel_image.findMany({
+            where: { hotel_id: Number(hotelId) },
+            orderBy: { sort_order: 'asc' }
+        });
+        
+        // 按图片类型分类
+        let banner_urls = [];
+        let roomType_urls = [];
+        let details_urls = [];
+        
+        images.forEach(image => {
+            const imageData = {
+                id: image.id,
+                url: image.image_url,
+                sort_order: image.sort_order,
+                room_type_id: image.room_type_id // 对于房型图片可能有room_type_id
+            };
+            
+            switch(image.image_type) {
+                case 0: // 酒店Banner图片
+                    banner_urls.push(imageData);
+                    break;
+                case 1: // 房型图片
+                    roomType_urls.push(imageData);
+                    break;
+                case 2: // 详情图片
+                    details_urls.push(imageData);
+                    break;
+                default:
+                    // 未知类型，可以根据需要处理
+                    console.log(`Unknown image type: ${image.image_type}`);
+            }
+        });
+        
+        return res.status(200).json({
+            ok: true,
+            data: {
+                hotel_id: hotelId,
+                banner_images: banner_urls,
+                room_type_images: roomType_urls,
+                detail_images: details_urls,
+                all_images: images // 可选：返回所有图片的原始数据
+            }
+        });
+        
+    } catch (error) {
+        console.error("Error fetching hotel images:", error);
+        return res.status(500).json({ 
+            error: "Internal server error", 
+            ok: false 
+        });
+    }
+});
+router.delete("/hotels/:hotelId/images/:imageId", authenticateToken, authorizeRoles("merchant"), async (req, res) => {
+    const { hotelId, imageId} = req.params;
+    const merchantId = Number(req.user.id);
+    const image_url = req.body.image_url; // 前端需要传回要删除的图片 URL，以便删除 OSS 上的文件
+    try {
+        const hotel = await prisma.hotel.findUnique({
+            where: { id: Number(hotelId) }
+        });
+
+        if (!hotel || hotel.merchant_id !== merchantId) {
+            return res.status(403).json({ error: "Permission denied", ok: false });
+        }
+
+        const image = await prisma.hotel_image.findUnique({
+            where: { id: Number(imageId) }
+        });
+
+        if (!image || image.hotel_id !== hotel.id) {
+            return res.status(404).json({ error: "Image not found", ok: false });
+        }
+
+        await prisma.hotel_image.delete({
+            where: { id: Number(imageId) }
+        });
+
+        // 删除 OSS 上的文件
+        if (image_url) {
+            await deleteByUrl(image_url);
+        }
+
+        return res.json({ message: "Image deleted successfully", ok: true });
+    } catch (error) {
+        console.error("Error deleting hotel image:", error);
+        return res.status(500).json({ error: "Internal server error", ok: false });
+    }
+});
 export default router;
