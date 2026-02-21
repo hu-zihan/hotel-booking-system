@@ -173,10 +173,10 @@ router.put("/hotels/:hotelId", authenticateToken, authorizeRoles("merchant"), as
  * 商户删除酒店
  */
 router.delete("/hotels/:hotelId", authenticateToken, authorizeRoles("merchant"), async (req, res) => {
-    try {
-        const { hotelId } = req.params;
-        const merchantId = Number(req.user.id);
+    const { hotelId } = req.params;
+    const merchantId = Number(req.user.id);
 
+    try {
         const hotel = await prisma.hotel.findUnique({
             where: { id: Number(hotelId) }
         });
@@ -195,8 +195,27 @@ router.delete("/hotels/:hotelId", authenticateToken, authorizeRoles("merchant"),
             });
         }
 
+        // 先查询酒店的所有图片
+        const hotelImages = await prisma.hotel_image.findMany({
+            where: { hotel_id: Number(hotelId) }
+        });
+
+        // 删除 OSS 上的图片文件
+        for (const img of hotelImages) {
+            if (img.image_url) {
+                try {
+                    await deleteByUrl(img.image_url);
+                    console.log(`Deleted OSS image: ${img.image_url}`);
+                } catch (ossError) {
+                    console.error(`Failed to delete OSS image: ${img.image_url}`, ossError);
+                    // 继续删除其他图片，不阻断流程
+                }
+            }
+        }
+
+        // 删除数据库中的酒店（cascade 会自动删除 hotel_image 记录）
         await prisma.hotel.delete({
-            where: { id: BigInt(hotelId) }
+            where: { id: Number(hotelId) }
         });
 
         return res.json({
@@ -204,6 +223,7 @@ router.delete("/hotels/:hotelId", authenticateToken, authorizeRoles("merchant"),
             ok: true
         });
     } catch (error) {
+        console.error("Error deleting hotel:", error);
         return res.status(500).json({
             error: "Failed to delete hotel",
             ok: false
