@@ -366,4 +366,350 @@ router.delete("/hotels/:hotelId/images/:imageId", authenticateToken, authorizeRo
         return res.status(500).json({ error: "Internal server error", ok: false });
     }
 });
+
+/**
+ * 商户获取酒店房型列表
+ */
+router.get("/hotels/:hotelId/room-types", authenticateToken, authorizeRoles("merchant"), async (req, res) => {
+    try {
+        const { hotelId } = req.params;
+        const merchantId = Number(req.user.id);
+
+        const hotel = await prisma.hotel.findUnique({
+            where: { id: Number(hotelId) }
+        });
+
+        if (!hotel || hotel.merchant_id !== merchantId) {
+            return res.status(403).json({ error: "Permission denied", ok: false });
+        }
+
+        const roomTypes = await prisma.hotel_room_type.findMany({
+            where: { hotel_id: Number(hotelId) },
+            include: {
+                hotel_image: {
+                    orderBy: { sort_order: 'asc' }
+                }
+            },
+            orderBy: { price: 'asc' }
+        });
+
+        return res.json({
+            ok: true,
+            data: roomTypes.map(rt => ({
+                id: rt.id.toString(),
+                name: rt.name,
+                bed_type: rt.bed_type,
+                capacity: rt.capacity,
+                breakfast_included: rt.breakfast_included,
+                refundable: rt.refundable,
+                price: parseFloat(rt.price),
+                stock: rt.stock,
+                status: rt.status,
+                images: rt.hotel_image.map(img => ({
+                    id: img.id.toString(),
+                    url: img.image_url,
+                    sort_order: img.sort_order
+                }))
+            }))
+        });
+    } catch (error) {
+        console.error("Error fetching room types:", error);
+        return res.status(500).json({ error: "Internal server error", ok: false });
+    }
+});
+
+/**
+ * 商户新增房型
+ */
+router.post("/hotels/:hotelId/room-types", authenticateToken, authorizeRoles("merchant"), async (req, res) => {
+    try {
+        const { hotelId } = req.params;
+        const merchantId = Number(req.user.id);
+        const { name, bed_type, capacity, breakfast_included, refundable, price, stock, status } = req.body;
+
+        const hotel = await prisma.hotel.findUnique({
+            where: { id: Number(hotelId) }
+        });
+
+        if (!hotel || hotel.merchant_id !== merchantId) {
+            return res.status(403).json({ error: "Permission denied", ok: false });
+        }
+
+        if (!name || price === undefined) {
+            return res.status(400).json({ error: "Name and price are required", ok: false });
+        }
+
+        const roomType = await prisma.hotel_room_type.create({
+            data: {
+                hotel_id: Number(hotelId),
+                name,
+                bed_type: bed_type || 0,
+                capacity: capacity || 2,
+                breakfast_included: breakfast_included || 0,
+                refundable: refundable || 1,
+                price: price,
+                stock: stock || 0,
+                status: status || 1
+            }
+        });
+
+        // 如果房型价格低于酒店当前最低价，更新酒店的 min_price
+        const currentMinPrice = parseFloat(hotel.min_price);
+        if (parseFloat(price) < currentMinPrice) {
+            await prisma.hotel.update({
+                where: { id: Number(hotelId) },
+                data: { min_price: price }
+            });
+        }
+
+        return res.status(201).json({
+            ok: true,
+            data: {
+                id: roomType.id.toString(),
+                name: roomType.name,
+                price: parseFloat(roomType.price)
+            },
+            message: "Room type created successfully"
+        });
+    } catch (error) {
+        console.error("Error creating room type:", error);
+        return res.status(500).json({ error: error.message || "Internal server error", ok: false });
+    }
+});
+
+/**
+ * 商户修改房型
+ */
+router.put("/room-types/:roomTypeId", authenticateToken, authorizeRoles("merchant"), async (req, res) => {
+    try {
+        const { roomTypeId } = req.params;
+        const merchantId = Number(req.user.id);
+        const { name, bed_type, capacity, breakfast_included, refundable, price, stock, status } = req.body;
+
+        const roomType = await prisma.hotel_room_type.findUnique({
+            where: { id: BigInt(roomTypeId) },
+            include: { hotel: true }
+        });
+
+        if (!roomType || roomType.hotel.merchant_id !== merchantId) {
+            return res.status(403).json({ error: "Permission denied", ok: false });
+        }
+
+        const oldPrice = parseFloat(roomType.price);
+        const newPrice = price !== undefined ? parseFloat(price) : oldPrice;
+
+        const updatedRoomType = await prisma.hotel_room_type.update({
+            where: { id: BigInt(roomTypeId) },
+            data: {
+                ...(name && { name }),
+                ...(bed_type !== undefined && { bed_type }),
+                ...(capacity !== undefined && { capacity }),
+                ...(breakfast_included !== undefined && { breakfast_included }),
+                ...(refundable !== undefined && { refundable }),
+                ...(price !== undefined && { price: newPrice }),
+                ...(stock !== undefined && { stock }),
+                ...(status !== undefined && { status }),
+                updated_at: new Date()
+            }
+        });
+
+        // 如果价格降低了，更新酒店的 min_price
+        if (newPrice < oldPrice) {
+            await prisma.hotel.update({
+                where: { id: roomType.hotel_id },
+                data: { min_price: newPrice.toString() }
+            });
+        } else if (newPrice > oldPrice) {
+            // 如果价格上涨了，检查是否需要更新酒店 min_price
+            const hotel = await prisma.hotel.findUnique({
+                where: { id: roomType.hotel_id }
+            });
+            const minRoomPrice = await prisma.hotel_room_type.findFirst({
+                where: { hotel_id: roomType.hotel_id, status: 1 },
+                orderBy: { price: 'asc' }
+            });
+            if (minRoomPrice && parseFloat(minRoomPrice.price) > parseFloat(hotel.min_price)) {
+                await prisma.hotel.update({
+                    where: { id: roomType.hotel_id },
+                    data: { min_price: minRoomPrice.price }
+                });
+            }
+        }
+
+        return res.json({
+            ok: true,
+            data: {
+                id: updatedRoomType.id.toString(),
+                name: updatedRoomType.name,
+                price: parseFloat(updatedRoomType.price)
+            },
+            message: "Room type updated successfully"
+        });
+    } catch (error) {
+        console.error("Error updating room type:", error);
+        return res.status(500).json({ error: error.message || "Internal server error", ok: false });
+    }
+});
+
+/**
+ * 商户删除房型
+ */
+router.delete("/room-types/:roomTypeId", authenticateToken, authorizeRoles("merchant"), async (req, res) => {
+    try {
+        const { roomTypeId } = req.params;
+        const merchantId = Number(req.user.id);
+
+        const roomType = await prisma.hotel_room_type.findUnique({
+            where: { id: BigInt(roomTypeId) },
+            include: { hotel: true }
+        });
+
+        if (!roomType || roomType.hotel.merchant_id !== merchantId) {
+            return res.status(403).json({ error: "Permission denied", ok: false });
+        }
+
+        const hotelId = roomType.hotel_id;
+        const deletedPrice = parseFloat(roomType.price);
+
+        // 先删除 OSS 上的房型图片
+        const roomImages = await prisma.hotel_image.findMany({
+            where: { room_type_id: BigInt(roomTypeId) }
+        });
+
+        for (const img of roomImages) {
+            if (img.image_url) {
+                try {
+                    await deleteByUrl(img.image_url);
+                } catch (ossError) {
+                    console.error(`Failed to delete OSS image: ${img.image_url}`, ossError);
+                }
+            }
+        }
+
+        // 删除数据库中的房型（cascade 会自动删除 hotel_image 记录）
+        await prisma.hotel_room_type.delete({
+            where: { id: BigInt(roomTypeId) }
+        });
+
+        // 如果删除的是最低价的房型，更新酒店的 min_price
+        const hotel = await prisma.hotel.findUnique({
+            where: { id: hotelId }
+        });
+
+        if (parseFloat(hotel.min_price) === deletedPrice) {
+            const minRoomPrice = await prisma.hotel_room_type.findFirst({
+                where: { hotel_id: hotelId, status: 1 },
+                orderBy: { price: 'asc' }
+            });
+            const newMinPrice = minRoomPrice ? minRoomPrice.price : '0';
+            await prisma.hotel.update({
+                where: { id: hotelId },
+                data: { min_price: newMinPrice }
+            });
+        }
+
+        return res.json({
+            ok: true,
+            message: "Room type deleted successfully"
+        });
+    } catch (error) {
+        console.error("Error deleting room type:", error);
+        return res.status(500).json({ error: error.message || "Internal server error", ok: false });
+    }
+});
+
+/**
+ * 商户上传房型图片
+ */
+router.post("/room-types/:roomTypeId/images", authenticateToken, authorizeRoles("merchant"), upload.single('image'), async (req, res) => {
+    try {
+        const { roomTypeId } = req.params;
+        const merchantId = Number(req.user.id);
+
+        const roomType = await prisma.hotel_room_type.findUnique({
+            where: { id: BigInt(roomTypeId) },
+            include: { hotel: true }
+        });
+
+        if (!roomType || roomType.hotel.merchant_id !== merchantId) {
+            return res.status(403).json({ error: "Permission denied", ok: false });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({ error: "No file uploaded", ok: false });
+        }
+
+        const { uploadToOss } = await import('../utils/ossUtils.js');
+        const ext = req.file.originalname.split('.').pop();
+        const ossPath = `hotel/${roomType.hotel_id}/room-type/${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${ext}`;
+        const imageUrl = await uploadToOss(req.file.buffer, ossPath);
+
+        const sortOrder = parseInt(req.body.sort_order) || 0;
+
+        const image = await prisma.hotel_image.create({
+            data: {
+                hotel_id: roomType.hotel_id,
+                room_type_id: BigInt(roomTypeId),
+                image_url: imageUrl,
+                image_type: 2, // 房型图片类型
+                sort_order: sortOrder
+            }
+        });
+
+        return res.status(201).json({
+            ok: true,
+            data: {
+                id: image.id.toString(),
+                url: image.image_url,
+                sort_order: image.sort_order
+            },
+            message: "Room type image uploaded successfully"
+        });
+    } catch (error) {
+        console.error("Error uploading room type image:", error);
+        return res.status(500).json({ error: error.message || "Internal server error", ok: false });
+    }
+});
+
+/**
+ * 商户删除房型图片
+ */
+router.delete("/room-types/:roomTypeId/images/:imageId", authenticateToken, authorizeRoles("merchant"), async (req, res) => {
+    try {
+        const { roomTypeId, imageId } = req.params;
+        const merchantId = Number(req.user.id);
+
+        const roomType = await prisma.hotel_room_type.findUnique({
+            where: { id: BigInt(roomTypeId) },
+            include: { hotel: true }
+        });
+
+        if (!roomType || roomType.hotel.merchant_id !== merchantId) {
+            return res.status(403).json({ error: "Permission denied", ok: false });
+        }
+
+        const image = await prisma.hotel_image.findUnique({
+            where: { id: BigInt(imageId) }
+        });
+
+        if (!image || image.room_type_id !== BigInt(roomTypeId)) {
+            return res.status(404).json({ error: "Image not found", ok: false });
+        }
+
+        // 删除 OSS 上的文件
+        if (image.image_url) {
+            await deleteByUrl(image.image_url);
+        }
+
+        await prisma.hotel_image.delete({
+            where: { id: BigInt(imageId) }
+        });
+
+        return res.json({ ok: true, message: "Image deleted successfully" });
+    } catch (error) {
+        console.error("Error deleting room type image:", error);
+        return res.status(500).json({ error: error.message || "Internal server error", ok: false });
+    }
+});
+
 export default router;
