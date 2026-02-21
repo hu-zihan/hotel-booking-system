@@ -2,6 +2,44 @@ import dotenv from 'dotenv';
 dotenv.config();
 import { ParseAddress } from 'address-parse';
 export const GAODE_API_KEY = process.env.GAODE_API_KEY;
+
+// 调用高德地图 v5 Place API 获取精确地址坐标
+export async function getPreciseLocation(address) {
+    try {
+        const params = new URLSearchParams({
+            key: GAODE_API_KEY,
+            keywords: address,
+            show_fields: 'location,adname,cityname',
+            page_size: 1,
+            page_num: 1
+        });
+        const url = `https://restapi.amap.com/v5/place/text?${params.toString()}`;
+        console.log('调用高德 v5 Place API:', url);
+        const rep = await fetch(url);
+        const data = await rep.json();
+
+        if (data.status === '1' && data.pois && data.pois.length > 0) {
+            const poi = data.pois[0];
+            const location = poi.location.split(',');
+            return {
+                longitude: location[0],
+                latitude: location[1],
+                adcode: poi.adcode,
+                citycode: poi.citycode,
+                adname: poi.adname,
+                cityname: poi.cityname,
+                name: poi.name,
+                address: poi.address
+            };
+        }
+        console.log('高德 v5 API 未找到结果:', data);
+        return null;
+    } catch (error) {
+        console.error('高德 v5 API 调用失败:', error);
+        return null;
+    }
+}
+
 // 调用高德地图API获取地理编码 类型列表
 async function getLocationFromAmap(address) {
     const params = new URLSearchParams({

@@ -2,8 +2,8 @@ import express from 'express';
 import { prisma } from '../config/prisma.js';
 import { authenticateToken, authorizeRoles } from '../middleware/authMiddleware.js';
 import { syncHotelToES } from '../utils/esHotelSync.js';
-import { getLocation } from '../utils/util.js';
-import { getLocationByAdcode } from '../utils/adcode2locUtil.js';
+import { getPreciseLocation } from '../utils/util.js';
+import ngeohash from 'ngeohash';
 const router = express.Router();
 router.get("/dashboard",authenticateToken,authorizeRoles("auditor"), async (req, res) => {
     try{
@@ -107,13 +107,13 @@ router.post("/hotels/:hotelId/audit", authenticateToken, authorizeRoles("auditor
     }
     try{
         const hotel = await prisma.hotel.findUnique({
-            where : {id: BigInt(hotelId)}
+            where : {id: Number(hotelId)}
         });
         if(!hotel){
             return res.status(404).json({error: "Hotel not found",ok:false});
         }
         const updatedHotel = await prisma.hotel.update({
-            where : {id: BigInt(hotelId)},
+            where : {id: Number(hotelId)},
             data : {
                 audit_status: approved ? 1 : 2,
             }});
@@ -123,24 +123,22 @@ router.post("/hotels/:hotelId/audit", authenticateToken, authorizeRoles("auditor
             const hotelData = await prisma.hotel.findUnique({
                 where: { id: Number(hotelId) }
             });
-            // 如果没有经纬度，则调用高德API获取
+            // 如果没有经纬度，则调用高德 v5 Place API 获取精确坐标
             if (!hotelData.latitude || !hotelData.longitude) {
-                console.log(`Hotel ${hotelId} missing coordinates, fetching from Gaode API...`);
-                const adcodes = await getLocation(hotelData.address);
-                if (adcodes && adcodes.length > 0) {
-                    const adcode = adcodes[0];
-                    const location = await getLocationByAdcode(adcode);
-                    if (location) {
-                        await prisma.hotel.update({
-                            where: { id: Number(hotelId) },
-                            data: {
-                                latitude: location.lat,
-                                longitude: location.lon,
-                                adcode: adcode
-                            }
-                        });
-                        console.log(`Hotel ${hotelId} coordinates updated: lat=${location.lat}, lon=${location.lon}`);
-                    }
+                console.log(`Hotel ${hotelId} missing coordinates, fetching from Gaode v5 Place API...`);
+                const preciseLocation = await getPreciseLocation(hotelData.address);
+                if (preciseLocation) {
+                    const geohash = ngeohash.encode(preciseLocation.latitude, preciseLocation.longitude, 12);
+                    await prisma.hotel.update({
+                        where: { id: Number(hotelId) },
+                        data: {
+                            latitude: preciseLocation.latitude,
+                            longitude: preciseLocation.longitude,
+                            adcode: preciseLocation.adcode,
+                            geohash: geohash
+                        }
+                    });
+                    console.log(`Hotel ${hotelId} coordinates updated: lat=${preciseLocation.latitude}, lon=${preciseLocation.longitude}, adcode=${preciseLocation.adcode}, geohash=${geohash}`);
                 }
             }
         }
