@@ -1,6 +1,9 @@
 import express from 'express';
 import { prisma } from '../config/prisma.js';
 import { authenticateToken, authorizeRoles } from '../middleware/authMiddleware.js';
+import { syncHotelToES } from '../utils/esHotelSync.js';
+import { getLocation } from '../utils/util.js';
+import { getLocationByAdcode } from '../utils/adcode2locUtil.js';
 const router = express.Router();
 router.get("/dashboard",authenticateToken,authorizeRoles("auditor"), async (req, res) => {
     try{
@@ -114,14 +117,41 @@ router.post("/hotels/:hotelId/audit", authenticateToken, authorizeRoles("auditor
             data : {
                 audit_status: approved ? 1 : 2,
             }});
-        
+
+        // 审核通过时，检查并填充经纬度信息
+        if (approved) {
+            const hotelData = await prisma.hotel.findUnique({
+                where: { id: Number(hotelId) }
+            });
+            // 如果没有经纬度，则调用高德API获取
+            if (!hotelData.latitude || !hotelData.longitude) {
+                console.log(`Hotel ${hotelId} missing coordinates, fetching from Gaode API...`);
+                const adcodes = await getLocation(hotelData.address);
+                if (adcodes && adcodes.length > 0) {
+                    const adcode = adcodes[0];
+                    const location = await getLocationByAdcode(adcode);
+                    if (location) {
+                        await prisma.hotel.update({
+                            where: { id: Number(hotelId) },
+                            data: {
+                                latitude: location.lat,
+                                longitude: location.lon,
+                                adcode: adcode
+                            }
+                        });
+                        console.log(`Hotel ${hotelId} coordinates updated: lat=${location.lat}, lon=${location.lon}`);
+                    }
+                }
+            }
+        }
+
         // 记录审核日志
         await prisma.hotel_review_reason.create({
             data : {
-                hotel_id: BigInt(hotelId),
+                hotel_id: Number(hotelId),
                 reason: reason || null,
                 review_result: approved ? "pass" : "reject",
-                operator_user_id: BigInt(req.user.id),
+                operator_user_id: Number(req.user.id),
                 action_type: "audit"
             }
         });
@@ -148,6 +178,8 @@ router.post("/hotels/:hotelId/online", authenticateToken, authorizeRoles("audito
             data : {
                 status: 1,
             }});
+        // 同步到 ES
+        await syncHotelToES(hotelId);
         return res.json({ok:true,message:`Hotel ${hotelId} is now online`})
     }
     catch(error){
@@ -169,6 +201,8 @@ router.post("/hotels/:hotelId/offline", authenticateToken, authorizeRoles("audit
             data : {
                 status: 0,
             }});
+        // 同步到 ES
+        await syncHotelToES(hotelId);
         return res.json({ok:true,message:`Hotel ${hotelId} is now offline`})
     }
     catch(error){
