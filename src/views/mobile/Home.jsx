@@ -6,6 +6,13 @@ import './Home.css';
 import { useNavigate } from 'react-router-dom';
 import HotelCard from '../../components/hotelCard';
 
+// --- 新增逻辑 1: 提取热门标签 (放在组件外，只计算一次) ---
+// flatMap 把所有酒店的 tags 数组铺平，Set 去重，slice 取前 5 个
+const hotTags = [...new Set(mockHotels.flatMap(h => h.tags || []))].slice(0, 5);
+const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+const fmt = (d) => `${d.getMonth() + 1}月${d.getDate()}日`;
+const getNights = (range) => Math.max(1, Math.round((range[1] - range[0]) / 86400000));
+
 export default function MobileHome() {
   const navigate = useNavigate();
   // 状态：控制日历弹出层
@@ -20,6 +27,9 @@ export default function MobileHome() {
   const [locating, setLocating] = useState(false);
   // 从 mock 数据中随机选一个酒店作为 Banner 推荐
   const bannerHotel = mockHotels[Math.floor(Math.random() * mockHotels.length)];
+  //  搜索与筛选 
+  const [keyword, setKeyword] = useState(''); // 搜索关键字
+  const [selectedTags, setSelectedTags] = useState([]); // 已选中的标签
 
   // 获取当前位置的函数
   const handleGetLocation = () => {
@@ -116,54 +126,67 @@ export default function MobileHome() {
     );
   };
 
+  // 标签点击切换
+  const toggleTag = (tag) => {
+    if (selectedTags.includes(tag)) {
+      setSelectedTags(selectedTags.filter(t => t !== tag));
+    } else {
+      setSelectedTags([...selectedTags, tag]);
+    }
+  };
+
   // 处理查询点击
   const handleSearch = () => {
     // 1. 先做“拦截”：如果没选日期，弹窗报错并中断代码执行
     if (!dateRange) {
-      alert('请选择入住和离店日期');
-      return; // 这里的 return 很关键，防止没选日期也往下跳
+        alert( '请选择入住日期' );
+        return; 
     }
 
-    // 2. 只有通过了上面的校验，才会执行到这里
-    console.log('查询条件已保存：', { dateRange });
+    // 2. 构建查询参数
+    const params = new URLSearchParams();
+    
+    // 放入城市
+    params.append('city', currentCity);
+    
+    // 放入日期 (转换为时间戳或字符串)
+    if (dateRange) {
+        params.append('startDate', dateRange[0].getTime());
+        params.append('endDate', dateRange[1].getTime());
+    }
 
-    // 3. 执行跳转：丝滑切换到登录页  //后面会修改这里的切换页面逻辑，这里先用切换到登录页占位
-    navigate('/login'); 
+    // 放入关键字
+    if (keyword) params.append('keyword', keyword);
+    
+    // 放入标签
+    if (selectedTags.length > 0) params.append('tags', selectedTags.join(','));
+
+    // 3. 执行跳转 -> 列表页
+    console.log('跳往列表页，参数：', params.toString());
+    navigate(`/list?${params.toString()}`);
   };
 
   // 渲染顶部 Banner 区域的函数
   const renderBanner = () => {
-    // 我们选取数组中的第一个酒店作为广告推荐
-    const bannerHotel = mockHotels[0];
-
+    const bannerHotels = mockHotels.slice(0, 4);
     return (
-      <div className="home-banner" style={{ padding: '12px' }}>
-        <Swiper autoplay loop style={{ '--border-radius': '12px' }}>
-          <Swiper.Item>
-            <div
-              // 点击 Banner 直接触发跳转逻辑，通过反引号嵌入酒店 ID
-              onClick={() => navigate(`/detail/${bannerHotel.id}`)}
-              style={{ position: 'relative', cursor: 'pointer' }}
-            >
-              <Image
-                src={bannerHotel.imageurl} // 使用 mock 数据中的 banner 大图
-                alt="酒店广告"
-                fit="cover"
-                style={{ width: '100%', height: '160px', borderRadius: '12px' }}
-              />
-              {/* 在 Banner 上方叠加文字提示 */}
-              <div style={{
-                position: 'absolute',
-                bottom: '10px',
-                left: '10px',
-                color: '#fff',
-                textShadow: '0 2px 4px rgba(0,0,0,0.5)',
-                fontWeight: 'bold'
-              }}>
-                今日特惠：{bannerHotel.name.cn}
+      <div className="home-banner">
+        <Swiper autoplay loop style={{ '--height': '220px' }}>
+          {bannerHotels.map(h => (
+            <Swiper.Item key={h.id}>
+              <div
+                onClick={() => navigate(`/detail/${h.id}`)}
+                style={{ position: 'relative', height: '220px', cursor: 'pointer' }}
+              >
+                <img src={h.imageurl} alt={h.name.cn} className="home-banner-img" />
+                <div className="home-banner-mask" />
+                <div className="home-banner-text">
+                  <span className="home-banner-tag">今日特惠</span>
+                  <div className="home-banner-name">{h.name.cn}</div>
+                </div>
               </div>
-            </div>
-          </Swiper.Item>
+            </Swiper.Item>
+          ))}
         </Swiper>
       </div>
     );
@@ -188,30 +211,59 @@ export default function MobileHome() {
           </div>
         </div>
 
-        {/* 日期选择 - 文档要求必考点 */}
-        <div className="search-row border-bottom" onClick={() => setCalendarVisible(true)}>
-          <div className="date-info">
-            <span className="date-label">入住 - 离店</span>
-            <span className="date-value">
-              {dateRange 
-                ? `${dateRange[0].toLocaleDateString()} 至 ${dateRange[1].toLocaleDateString()}` 
-                : '请选择日期'}
+        {/* 日期选择 */}
+        <div className="date-row" onClick={() => setCalendarVisible(true)}>
+          <div className="date-block">
+            <span className="date-block-label">入住</span>
+            <span className={`date-block-value${!dateRange ? ' placeholder' : ''}`}>
+              {dateRange ? fmt(dateRange[0]) : '请选择'}
+            </span>
+            <span className="date-block-week">
+              {dateRange ? weekdays[dateRange[0].getDay()] : ''}
+            </span>
+          </div>
+          <div className="date-nights-center">
+            {dateRange ? `${getNights(dateRange)}晚` : '选日期'}
+          </div>
+          <div className="date-block date-block-right">
+            <span className="date-block-label">离店</span>
+            <span className={`date-block-value${!dateRange ? ' placeholder' : ''}`}>
+              {dateRange ? fmt(dateRange[1]) : '请选择'}
+            </span>
+            <span className="date-block-week">
+              {dateRange ? weekdays[dateRange[1].getDay()] : ''}
             </span>
           </div>
         </div>
 
         {/* 关键词搜索 */}
         <div className="search-row">
-          <SearchBar placeholder='搜索酒店、地点、关键词' className="search-bar" />
+          <SearchBar 
+            placeholder='搜索酒店、地点、关键词' 
+            className="search-bar" 
+            value={keyword}
+            onChange={val => setKeyword(val)} // Antd Mobile SearchBar 直接返回字符串
+          />
         </div>
 
-        {/* 快捷标签 - 动态渲染 mockHotels 里的标签 */}
-        <div className="tags-container">
-          {bannerHotel.tags.map(tag => (
-            <Tag key={tag} color='primary' fill='outline' className="tag-item">
-              {tag}
-            </Tag>
-          ))}
+        {/*快捷标签 (使用 hotTags 并支持点击)*/}
+        <div className="tags-container" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '10px 0' }}>
+          {hotTags.map(tag => {
+            const isSelected = selectedTags.includes(tag);
+            return (
+                <Tag 
+                    key={tag} 
+                    // 选中时变成实心 primary 色，未选中时是空心默认色
+                    color={isSelected ? 'primary' : 'default'} 
+                    fill={isSelected ? 'solid' : 'outline'}
+                    className="tag-item"
+                    onClick={() => toggleTag(tag)}
+                    style={{ cursor: 'pointer' }}
+                >
+                    {tag}
+                </Tag>
+            );
+          })}
         </div>
 
         {/* 查询按钮 */}
@@ -220,9 +272,13 @@ export default function MobileHome() {
         </Button>
       </div>
 
-        {/* 3.推荐酒店列表容器 */}
-      <div className="hotel-list-container" style={{ padding: '16px', background: '#f5f5f5' }}>
-        <h3 style={{ marginBottom: '12px' }}>热门推荐</h3>
+      {/* 3. 推荐酒店列表容器 */}
+      <div className="hotel-list-container">
+        <div className="section-header">
+          <div className="section-header-line" />
+          <span className="section-header-title">热门推荐</span>
+          <span className="section-header-sub">精选好评酒店</span>
+        </div>
     
          {mockHotels.map((hotel) => (
           <HotelCard 

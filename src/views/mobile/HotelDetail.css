@@ -1,0 +1,331 @@
+/* HotelDetail 页面样式  */
+
+.detail-page {
+  background: #f2f4f8;
+  min-height: 100vh;
+  padding-bottom: 72px;
+}
+
+/* 顶部导航 */
+.detail-navbar {
+  background: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+/*  Banner Swiper */
+.detail-swiper-wrap {
+  position: relative;
+}
+
+.detail-swiper-img {
+  width: 100%;
+  height: 240px;
+  object-fit: cover;
+  display: block;
+}
+
+.detail-img-count {
+  position: absolute;
+  bottom: 10px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  border-radius: 10px;
+  padding: 2px 10px;
+  font-size: 12px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+/*  通用卡片容器 */
+.detail-card {
+  background: #fff;
+  margin-bottom: 8px;
+  padding: 16px;
+}
+
+/* 酒店名称 / 英文名 */
+.detail-hotel-name {
+  font-size: 20px;
+  font-weight: bold;
+  margin: 0 0 4px 0;
+  color: #222;
+}
+
+.detail-hotel-en {
+  font-size: 12px;
+  color: #aaa;
+  margin: 0 0 10px 0;
+}
+
+/* 星级行 */
+.detail-star-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.detail-stars {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.detail-star-label {
+  font-size: 12px;
+  color: #999;
+  margin-left: 6px;
+}
+
+.detail-score {
+  font-size: 14px;
+  font-weight: bold;
+  color: #fff;
+  background: linear-gradient(135deg, #0086F6, #36b8ff);
+  border-radius: 6px 6px 0 6px;
+  padding: 4px 10px;
+}
+
+/* 设施标题行 */
+.detail-tags-title {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 8px;
+  margin-top: 4px;
+}
+
+/* 地址 / 开业时间 */
+.detail-address,
+.detail-open-date {
+  display: flex;
+  align-items: flex-start;
+  font-size: 13px;
+  color: #666;
+  line-height: 1.6;
+  margin-top: 10px;
+}
+
+/* ④ 日历区 */
+.detail-section-title {
+  font-size: 15px;
+  font-weight: bold;
+  color: #222;
+  padding: 0 0 10px 10px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #f0f0f0;
+  border-left: 3px solid #0086F6;
+}
+
+/* 日期选择行 */
+.detail-date-row {
+  display: flex;
+  align-items: center;
+  padding: 4px 0 14px;
+  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 12px;
+}
+
+.detail-date-item {
+  flex: 1;
+  cursor: pointer;
+  user-select: none;
+}
+
+.detail-date-right {
+  text-align: right;
+}
+
+.detail-date-label {
+  font-size: 11px;
+  color: #999;
+  margin-bottom: 4px;
+}
+
+.detail-date-value {
+  font-size: 22px;
+  font-weight: bold;
+  color: #222;
+  line-height: 1.2;
+}
+
+.detail-date-week {
+  font-size: 11px;
+  color: #aaa;
+  margin-top: 3px;
+}
+
+/* 中间夜数徽章 */
+.detail-nights-badge {
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #0086F6, #36b8ff);
+  color: #fff;
+  border-radius: 18px;
+  padding: 8px 20px;
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  margin: 0 10px;
+  box-shadow: 0 2px 10px rgba(0, 134, 246, 0.35);
+  letter-spacing: 0.5px;
+}
+
+/* 人数选择行 */
+.detail-people-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+
+.detail-people-label {
+  font-size: 14px;
+  color: #333;
+}
+
+.detail-people-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.detail-people-count {
+  font-size: 13px;
+  color: #666;
+  min-width: 28px;
+}
+
+/*  房型列表 */
+.detail-rooms-card {
+  padding: 0;
+}
+
+.detail-rooms-card .detail-section-title {
+  padding: 14px 16px 10px 19px;
+  margin-bottom: 0;
+}
+
+.detail-room-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.detail-room-divider {
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.detail-room-thumb {
+  width: 115px;
+  height: 86px;
+  object-fit: cover;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.detail-room-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.detail-room-type {
+  font-size: 14px;
+  font-weight: bold;
+  color: #222;
+  margin-bottom: 8px;
+}
+
+.detail-room-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.detail-room-tag {
+  font-size: 11px;
+  color: #666;
+  background: #f5f5f5;
+  padding: 2px 7px;
+  border-radius: 3px;
+}
+
+.detail-room-tag.tag-breakfast {
+  color: #52c41a;
+  background: #f6ffed;
+}
+
+/* 价格列 */
+.detail-room-price-col {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.detail-room-price {
+  color: #ff4d4f;
+  white-space: nowrap;
+}
+
+.price-unit {
+  font-size: 12px;
+}
+
+.price-num {
+  font-size: 22px;
+  font-weight: bold;
+}
+
+.price-per {
+  font-size: 11px;
+  color: #aaa;
+}
+
+/* 底部吸底预订栏 */
+.detail-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 10px 16px;
+  background: #fff;
+  border-top: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.06);
+  z-index: 99;
+}
+
+.detail-footer-price {
+  color: #ff4d4f;
+  line-height: 1.2;
+}
+
+.footer-unit {
+  font-size: 14px;
+}
+
+.footer-num {
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.footer-per {
+  font-size: 12px;
+  color: #999;
+}
+
+.detail-footer-meta {
+  font-size: 11px;
+  color: #aaa;
+  margin-top: 3px;
+}

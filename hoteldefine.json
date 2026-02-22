@@ -1,0 +1,52 @@
+{
+    "hotel": {
+        "id": "1",
+        "name": "北京王府半岛酒店",
+        "address": "北京市东城区王府井金鱼胡同8号",
+        "star": 5,
+        "min_price": "2500",
+        "hotel_info": {
+            "name_en": "The Peninsula Beijing",
+            "phone": "010-85162888",
+            "imageurl": "https://example.com/peninsula-beijing.jpg",
+            "open_date": "1989-07-01T00:00:00.000Z",
+            "desc": "位于王府井核心商业区的奢华酒店，融合传统北京特色与现代豪华设施，距离天安门广场仅5分钟车程。酒店拥有各类客房、餐厅、水疗中心和会议设施。"
+        }
+    },
+    "stations": [
+        {
+            "name": "金鱼胡同",
+            "en_name": "JinYu HuTong",
+            "distance": 189.29334452407755,
+            "line_name": [
+                "地铁8号线"
+            ],
+            "line_color": [
+                "018237"
+            ]
+        },
+        {
+            "name": "灯市口",
+            "en_name": "deng shi kou",
+            "distance": 621.5735854042306,
+            "line_name": [
+                "地铁5号线"
+            ],
+            "line_color": [
+                "A61D7F"
+            ]
+        },
+        {
+            "name": "中国美术馆",
+            "en_name": "zhong guo mei shu guan",
+            "distance": 745.2436337796312,
+            "line_name": [
+                "地铁8号线"
+            ],
+            "line_color": [
+                "018237"
+            ]
+        }
+    ],
+    "ok": true
+}

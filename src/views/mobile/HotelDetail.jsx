@@ -1,103 +1,256 @@
 // src/views/mobile/HotelDetail.jsx
-import React from 'react';
-// useParams: 核心钩子，专门用于从 URL 路径中提取动态参数（如 :id）
-// useNavigate: 用于在代码逻辑中触发页面跳转（如点击返回）
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-// antd-mobile 组件库：提供符合移动端交互规范的 UI 零件
-import { NavBar, Tag, Button, Space } from 'antd-mobile';
-// 模拟数据源：在没有真实后端接口前，我们先从本地 mockData 读取数据
+import { NavBar, Tag, Button, Space, Swiper, DatePicker, Stepper, Toast } from 'antd-mobile';
+import { StarFill, EnvironmentOutline, TagOutline, ClockCircleOutline } from 'antd-mobile-icons';
 import { mockHotels } from '../../mockData';
+import './HotelDetail.css';
 
-/**
- * HotelDetail 页面组件
- * 职责：根据 URL 传入的 id，展示对应的酒店深度详情信息
- */
 export default function HotelDetail() {
-  // 1. 【获取参数】：从路由中提取 "id"（对应 App.jsx 中路由配置的 :id）
-  const { id } = useParams(); 
+  const { id } = useParams();
   const navigate = useNavigate();
 
-  // 2. 【数据寻址】：在 mock 数组中查找 id 与当前路径一致的酒店对象
-  // 逻辑类比 SoC 的地址译码：匹配到正确的 ID 才能选中对应的存储单元
-  const hotel = mockHotels.find(h => h.id === id);
+  // ── 日期/人数 状态 ──────────────────────────
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
 
-  // 3. 【异常处理】：如果用户手动输入了错误的 ID，需要给一个友好的反馈
+  const [checkIn, setCheckIn] = useState(today);
+  const [checkOut, setCheckOut] = useState(tomorrow);
+  const [adults, setAdults] = useState(2);
+  const [checkinVisible, setCheckinVisible] = useState(false);
+  const [checkoutVisible, setCheckoutVisible] = useState(false);
+
+  // ── 数据寻址 ────────────────────────────────
+ const hotel = mockHotels.find(h => String(h.id) === String(id));
+
   if (!hotel) {
     return (
       <div style={{ padding: '20px', textAlign: 'center' }}>
         <p>暂无酒店详情信息</p>
-        <Button onClick={() => navigate('/')}>返回首页</Button>
+        <Button onClick={() => navigate(-1)}>返回列表</Button>
       </div>
     );
   }
 
+  // ── 工具函数 ────────────────────────────────
+  const nights = Math.max(1, Math.round((checkOut - checkIn) / (1000 * 60 * 60 * 24)));
+  const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+  const fmt = (d) => `${d.getMonth() + 1}月${d.getDate()}日`;
+
+  const images = hotel.images?.length > 0 ? hotel.images : [hotel.imageurl];
+
+  const renderStars = (star) =>
+    Array.from({ length: 5 }, (_, i) => (
+      <StarFill key={i} style={{ color: i < star ? '#FFB400' : '#e0e0e0', fontSize: '13px' }} />
+    ));
+
+  const handleCheckinConfirm = (val) => {
+    setCheckIn(val);
+    if (val >= checkOut) {
+      const next = new Date(val);
+      next.setDate(next.getDate() + 1);
+      setCheckOut(next);
+    }
+    setCheckinVisible(false);
+  };
+
+  const handleCheckoutConfirm = (val) => {
+    if (val <= checkIn) {
+      Toast.show({ content: '退房日期须晚于入住日期', icon: 'fail' });
+      return;
+    }
+    setCheckOut(val);
+    setCheckoutVisible(false);
+  };
+
+  const rooms = hotel.rooms || [{ id: 'default', type: hotel.roomType, price: hotel.price, breakfast: false, capacity: 2, size: 25 }];
+
+  // ── 渲染 ────────────────────────────────────
   return (
-    <div className="detail-page" style={{ background: '#f5f5f5', minHeight: '100vh' }}>
-      {/* 顶部导航栏 
-        onBack: 点击左侧返回箭头时，navigate(-1) 表示回到浏览器记录的上一页
-      */}
-      <NavBar onBack={() => navigate(-1)} style={{ background: '#fff' }}>
+    <div className="detail-page">
+
+      {/* ① 顶部导航：显示酒店名 + 返回列表 */}
+      <NavBar
+        className="detail-navbar"
+        onBack={() => navigate(-1)}
+      >
         {hotel.name.cn}
       </NavBar>
 
-      {/* 酒店视觉区域：展示酒店主图 */}
-      <div className="detail-banner">
-        <img 
-          src={hotel.imageurl} 
-          alt={hotel.name.cn} 
-          style={{ width: '100%', height: '240px', objectFit: 'cover' }} 
-        />
+      {/* ② 大图 Banner — 支持左右滑动 */}
+      <div className="detail-swiper-wrap">
+        <Swiper loop autoplay style={{ '--height': '240px' }}>
+          {images.map((img, idx) => (
+            <Swiper.Item key={idx}>
+              <img
+                src={img}
+                alt={`${hotel.name.cn} 图片${idx + 1}`}
+                className="detail-swiper-img"
+              />
+            </Swiper.Item>
+          ))}
+        </Swiper>
+        <span className="detail-img-count">
+          {images.length} 张图片
+        </span>
       </div>
 
-      {/* 核心信息展示区 */}
-      <div style={{ padding: '16px', background: '#fff', marginBottom: '8px' }}>
-        <h2 style={{ fontSize: '20px', margin: '0 0 10px 0' }}>{hotel.name.cn}</h2>
-        
-        {/* 评分与标签 */}
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
-          <span style={{ color: '#0086F6', fontWeight: 'bold', fontSize: '18px', marginRight: '8px' }}>
-            {hotel.score}分
-          </span>
-          <Space>
-            {hotel.tags.map(tag => (
-              <Tag key={tag} color='primary' fill='outline' style={{ fontSize: '10px' }}>
-                {tag}
-              </Tag>
-            ))}
-          </Space>
+      {/* ③ 酒店基础信息：名称 / 星级 / 设施 / 地址 */}
+      <div className="detail-card">
+        <h2 className="detail-hotel-name">{hotel.name.cn}</h2>
+        <p className="detail-hotel-en">{hotel.name.en}</p>
+
+        {/* 星级 + 评分 */}
+        <div className="detail-star-row">
+          <div className="detail-stars">
+            {renderStars(hotel.star)}
+            <span className="detail-star-label">{hotel.star}星级</span>
+          </div>
+          <span className="detail-score">{hotel.score} 分</span>
         </div>
 
-        {/* 详细地址 */}
-        <div style={{ color: '#666', fontSize: '14px', lineHeight: '1.5' }}>
-          <strong>地址：</strong>{hotel.address}
+        {/* 设施标签 */}
+        <div className="detail-tags-title">
+          <TagOutline style={{ marginRight: 4, color: '#ff7b47' }} />
+          酒店设施
+        </div>
+        <Space wrap>
+          {(hotel.facilities || hotel.tags).map(f => (
+            <Tag key={f} color="primary" fill="outline" style={{ fontSize: '11px' }}>
+              {f}
+            </Tag>
+          ))}
+        </Space>
+
+        {/* 地址 */}
+        <div className="detail-address">
+          <EnvironmentOutline style={{ color: '#0086F6', marginRight: '4px', flexShrink: 0 }} />
+          {hotel.address}
+        </div>
+
+        {/* 开业时间 */}
+        <div className="detail-open-date">
+          <ClockCircleOutline style={{ color: '#aaa', marginRight: '4px', flexShrink: 0 }} />
+          开业时间：{hotel.openDate}
         </div>
       </div>
 
-      {/* 酒店属性详情（可选展示） */}
-      <div style={{ padding: '16px', background: '#fff' }}>
-        <h3 style={{ fontSize: '16px', marginBottom: '12px' }}>酒店信息</h3>
-        <div style={{ fontSize: '14px', color: '#666' }}>
-          <p>星级：{hotel.star} 星级酒店</p>
-          <p>开业时间：{hotel.openDate}</p>
-          <p>推荐房型：{hotel.roomType}</p>
+      {/* ④ 日历 + 人间夜 Banner */}
+      <div className="detail-card">
+        <div className="detail-section-title">入住信息</div>
+
+        {/* 日期选择行 */}
+        <div className="detail-date-row">
+          <div className="detail-date-item" onClick={() => setCheckinVisible(true)}>
+            <div className="detail-date-label">入住</div>
+            <div className="detail-date-value">{fmt(checkIn)}</div>
+            <div className="detail-date-week">{weekdays[checkIn.getDay()]}</div>
+          </div>
+
+          <div className="detail-nights-badge">
+            共 {nights} 晚
+          </div>
+
+          <div className="detail-date-item detail-date-right" onClick={() => setCheckoutVisible(true)}>
+            <div className="detail-date-label">退房</div>
+            <div className="detail-date-value">{fmt(checkOut)}</div>
+            <div className="detail-date-week">{weekdays[checkOut.getDay()]}</div>
+          </div>
+        </div>
+
+        {/* 人数选择行 */}
+        <div className="detail-people-row">
+          <span className="detail-people-label">入住人数</span>
+          <div className="detail-people-right">
+            <Stepper
+              min={1}
+              max={10}
+              value={adults}
+              onChange={setAdults}
+              style={{ '--border': '1px solid #ddd', '--border-radius': '4px', '--input-width': '36px' }}
+            />
+            <span className="detail-people-count">{adults} 人</span>
+          </div>
         </div>
       </div>
 
-      {/* 底部吸底预订栏 
-        使用 position: fixed 保证它始终悬浮在屏幕最下方
-      */}
-      <div style={{ 
-        position: 'fixed', bottom: 0, left: 0, right: 0, 
-        padding: '10px 16px', background: '#fff', borderTop: '1px solid #eee',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        boxShadow: '0 -2px 10px rgba(0,0,0,0.05)'
-      }}>
-        <div style={{ color: '#ff4d4f' }}>
-          <span style={{ fontSize: '14px' }}>¥</span>
-          <span style={{ fontSize: '24px', fontWeight: 'bold' }}>{hotel.price}</span>
-          <span style={{ fontSize: '12px', color: '#999' }}> 起</span>
+      {/* ⑤ 房型价格列表 */}
+      <div className="detail-card detail-rooms-card">
+        <div className="detail-section-title">选择房型</div>
+        {rooms.map((room, idx) => (
+          <div key={room.id || idx} className={`detail-room-item${idx < rooms.length - 1 ? ' detail-room-divider' : ''}`}>
+            {/* 房型缩略图 */}
+            {room.imageurl && (
+              <img src={room.imageurl} alt={room.type} className="detail-room-thumb" />
+            )}
+            <div className="detail-room-info">
+              <div className="detail-room-type">{room.type}</div>
+              <div className="detail-room-tags">
+                <span className="detail-room-tag">{room.capacity} 人入住</span>
+                {room.size && <span className="detail-room-tag">{room.size} ㎡</span>}
+                <span className={`detail-room-tag ${room.breakfast ? 'tag-breakfast' : ''}`}>
+                  {room.breakfast ? '含早餐' : '不含早餐'}
+                </span>
+              </div>
+            </div>
+            <div className="detail-room-price-col">
+              <div className="detail-room-price">
+                <span className="price-unit">¥</span>
+                <span className="price-num">{room.price}</span>
+                <span className="price-per">/晚</span>
+              </div>
+              <Button
+                size="small"
+                color="primary"
+                style={{ marginTop: '8px' }}
+                onClick={() => Toast.show({ content: `已选：${room.type}`, icon: 'success' })}
+              >
+                预订
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* DatePicker 弹出层 */}
+      <DatePicker
+        title="选择入住日期"
+        visible={checkinVisible}
+        onClose={() => setCheckinVisible(false)}
+        defaultValue={checkIn}
+        min={new Date()}
+        onConfirm={handleCheckinConfirm}
+        precision="day"
+      />
+      <DatePicker
+        title="选择退房日期"
+        visible={checkoutVisible}
+        onClose={() => setCheckoutVisible(false)}
+        defaultValue={checkOut}
+        min={(() => { const m = new Date(checkIn); m.setDate(m.getDate() + 1); return m; })()}
+        onConfirm={handleCheckoutConfirm}
+        precision="day"
+      />
+
+      {/* 底部吸底预订栏 */}
+      <div className="detail-footer">
+        <div>
+          <div className="detail-footer-price">
+            <span className="footer-unit">¥</span>
+            <span className="footer-num">{hotel.price}</span>
+            <span className="footer-per"> 起/晚</span>
+          </div>
+          <div className="detail-footer-meta">
+            {fmt(checkIn)} — {fmt(checkOut)} · {nights} 晚 · {adults} 人
+          </div>
         </div>
-        <Button color='primary' size='large' style={{ padding: '0 30px' }} onClick={() => alert('进入预订支付流程')}>
+        <Button
+          color="primary"
+          size="large"
+          style={{ padding: '0 28px' }}
+          onClick={() => Toast.show({ content: '正在进入预订流程…', icon: 'loading' })}
+        >
           立即预订
         </Button>
       </div>

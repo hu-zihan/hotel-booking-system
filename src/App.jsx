@@ -1,8 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-// 引入你的两个页面组件
 import MobileHome from './views/mobile/Home';
 import MobileUserLogin from './views/mobile/Login';
 import HotelDetail from './views/mobile/HotelDetail';
+import ListPage from './views/mobile/HotelList.jsx';
 
 function App() {
   return (
@@ -14,6 +14,8 @@ function App() {
         
         {/* path="/login" 代表登录页，显示 MobileUserLogin 组件 */}
         <Route path="/login" element={<MobileUserLogin />} />
+
+        <Route path="/list" element={<ListPage />} />
 
         {/* path="/detail/:id" 代表酒店详情页，显示 HotelDetail 组件 */}
         <Route path="/detail/:id" element={<HotelDetail />} />
