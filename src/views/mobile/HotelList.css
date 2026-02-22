@@ -1,0 +1,357 @@
+/* ── HotelList 页面样式 ── */
+
+.list-page {
+  background: #f5f5f5;
+  min-height: 100vh;
+}
+
+/* ── 吸顶整体容器 ── */
+.list-sticky-top {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* NavBar */
+.list-navbar {
+  background: #fff;
+}
+
+/* ① 条件栏 */
+.list-cond-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-top: 1px solid #f5f5f5;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.list-cond-bar::-webkit-scrollbar { display: none; }
+
+/* 通用 chip 按钮 */
+.cond-chip {
+  display: flex;
+  align-items: center;
+  background: #f5f7fa;
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 13px;
+  color: #333;
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+
+.cond-city {
+  color: #0086F6;
+  border-color: #bcd6f5;
+  background: #eaf4ff;
+}
+
+.cond-search-btn {
+  padding: 5px 10px;
+  color: #666;
+}
+
+/* 日期段 */
+.cond-dates {
+  display: flex;
+  align-items: center;
+  background: #f5f7fa;
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  padding: 4px 8px;
+  gap: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.cond-date-item {
+  text-align: center;
+}
+
+.cond-date-right { text-align: right; }
+
+.cond-date-d {
+  font-size: 14px;
+  font-weight: bold;
+  color: #222;
+  line-height: 1.2;
+}
+
+.cond-date-w {
+  font-size: 10px;
+  color: #aaa;
+}
+
+.cond-nights {
+  background: #0086F6;
+  color: #fff;
+  border-radius: 10px;
+  padding: 2px 8px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* ② 筛选栏 */
+.list-filter-bar {
+  display: flex;
+  align-items: center;
+  border-top: 1px solid #f0f0f0;
+  position: relative;
+}
+
+.filter-reset-btn {
+  font-size: 12px;
+  color: #ff4d4f;
+  background: none;
+  border: none;
+  padding: 0 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  height: 48px;
+}
+
+/* 筛选选中态高亮 */
+.filter-active {
+  color: #0086F6;
+  font-weight: bold;
+}
+
+/* 下拉面板内容区 */
+.dropdown-content {
+  padding: 16px;
+}
+
+.dropdown-section-title {
+  font-size: 13px;
+  font-weight: bold;
+  color: #666;
+  margin-bottom: 10px;
+}
+
+/* ── 结果计数行 ── */
+.list-result-count {
+  padding: 10px 16px;
+  font-size: 12px;
+  color: #999;
+}
+
+.list-result-count strong {
+  color: #0086F6;
+}
+
+/* ── 卡片列表区 ── */
+.list-cards {
+  padding: 0 12px 20px;
+}
+
+/* ── 列表卡片 ── */
+.lc-card {
+  display: flex;
+  gap: 0;
+  background: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+  transition: box-shadow 0.2s, transform 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.lc-card:active {
+  transform: scale(0.985);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+/* 左侧图片 */
+.lc-img-wrap {
+  position: relative;
+  flex-shrink: 0;
+  width: 116px;
+}
+
+.lc-img {
+  width: 116px;
+  height: 100%;
+  min-height: 130px;
+  object-fit: cover;
+  display: block;
+}
+
+.lc-breakfast-badge {
+  position: absolute;
+  bottom: 6px;
+  left: 0;
+  background: #52c41a;
+  color: #fff;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 0 4px 4px 0;
+}
+
+/* 右侧信息区 */
+.lc-body {
+  flex: 1;
+  padding: 10px 12px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+/* 名称行 */
+.lc-row {
+  display: flex;
+  align-items: center;
+}
+
+.lc-name-row {
+  justify-content: space-between;
+  margin-bottom: 3px;
+}
+
+.lc-name {
+  font-size: 15px;
+  font-weight: bold;
+  color: #222;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-right: 8px;
+}
+
+.lc-score {
+  font-size: 14px;
+  font-weight: bold;
+  color: #fff;
+  background: #0086F6;
+  border-radius: 4px 4px 0 4px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
+
+/* 星级 */
+.lc-stars {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 5px;
+}
+
+.lc-star-text {
+  font-size: 10px;
+  color: #aaa;
+  margin-left: 4px;
+}
+
+/* 设施标签 */
+.lc-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 5px;
+}
+
+.lc-tag {
+  font-size: 10px;
+  color: #0086F6;
+  background: #eaf4ff;
+  padding: 1px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+/* 地址 */
+.lc-address {
+  display: flex;
+  align-items: flex-start;
+  font-size: 11px;
+  color: #aaa;
+  line-height: 1.4;
+  margin-bottom: 6px;
+  overflow: hidden;
+}
+
+.lc-address span {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  -webkit-box-orient: vertical;
+}
+
+/* 价格行 */
+.lc-price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+}
+
+.lc-price-note {
+  font-size: 11px;
+  color: #aaa;
+  margin-right: 4px;
+}
+
+.lc-price {
+  display: flex;
+  align-items: baseline;
+  color: #ff4d4f;
+}
+
+.lc-price-unit {
+  font-size: 12px;
+}
+
+.lc-price-num {
+  font-size: 20px;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.lc-per {
+  font-size: 11px;
+  color: #aaa;
+}
+
+/* ── 无限滚动提示 ── */
+.list-loading-hint,
+.list-no-more {
+  text-align: center;
+  font-size: 12px;
+  color: #bbb;
+  padding: 14px 0 8px;
+}
+
+/* ── 弹层通用 ── */
+.popup-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #222;
+  margin-bottom: 16px;
+}
+
+/* 人数行 */
+.people-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  font-size: 14px;
+  color: #333;
+}
+
+.people-count {
+  font-size: 13px;
+  color: #666;
+  min-width: 32px;
+}

@@ -1,147 +1,401 @@
-import React, { useMemo, useState, useRef } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-//  引入了最新的 ErrorBlock 组件，替换掉了已弃用的 Empty
-// 新增引入 Dropdown, Radio, Space 组件
-import { NavBar, ErrorBlock, Dropdown, Radio, Space } from 'antd-mobile';
-import { mockHotels } from '../../mockData'; 
-import HotelCard from '../../components/hotelCard';
+import {
+  NavBar, SearchBar, Dropdown, Radio, Space, Tag, Button,
+  Popup, DatePicker, Stepper, InfiniteScroll, ErrorBlock, Toast,
+} from 'antd-mobile';
+import { EnvironmentOutline, StarFill, SearchOutline } from 'antd-mobile-icons';
+import { mockHotels } from '../../mockData';
+import './HotelList.css';
+
+// ── 常量 ────────────────────────────────────────
+const PAGE_SIZE = 4;
+const CITIES = ['上海', '南京', '北京', '杭州', '成都', '广州'];
+const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+const fmt = (d) => `${d.getMonth() + 1}/${d.getDate()}`;
 
 export default function ListPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-// --- 引用定义 ---
   const dropdownRef = useRef(null);
 
-  // 1. 获取并格式化 URL 参数
-  const city = searchParams.get('city') || '';
-  const keyword = searchParams.get('keyword') || '';
-  const tagsParam = searchParams.get('tags') || '';
-  // 如果有标签，把字符串 '亲子,湖景' 劈开变成数组 ['亲子', '湖景']
-  const selectedTags = tagsParam ? tagsParam.split(',') : [];
-  // 2. 新增本地状态：用于页内的高级筛选 (星级和价格)
-  const [starFilter, setStarFilter] = useState('all');
-  const [priceFilter, setPriceFilter] = useState('all');
+  // ── 从 URL 取初始参数 ────────────────────────
+  const initCity    = searchParams.get('city')    || '上海';
+  const initKeyword = searchParams.get('keyword') || '';
+  const tagsParam   = searchParams.get('tags')    || '';
+  const initTags    = tagsParam ? tagsParam.split(',') : [];
 
-  // --- 交互优化函数：选中后自动关闭菜单 ---
-  const handleStarChange = (val) => {
-    setStarFilter(val);
-    dropdownRef.current?.close(); // 3. 选中即关闭，体验丝滑
-  };
+  // ── 顶部条件状态 ─────────────────────────────
+  const today    = new Date();
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
 
-  const handlePriceChange = (val) => {
-    setPriceFilter(val);
-    dropdownRef.current?.close(); // 3. 选中即关闭
-  };
+  const [city, setCity]               = useState(initCity);
+  const [keyword, setKeyword]         = useState(initKeyword);
+  const [checkIn, setCheckIn]         = useState(today);
+  const [checkOut, setCheckOut]       = useState(tomorrow);
+  const [adults, setAdults]           = useState(2);
 
-  // 2. 核心魔法：使用 useMemo 缓存过滤结果，提升性能
+  // 弹层控制
+  const [cityVisible,     setCityVisible]     = useState(false);
+  const [checkinVisible,  setCheckinVisible]  = useState(false);
+  const [checkoutVisible, setCheckoutVisible] = useState(false);
+  const [peopleVisible,   setPeopleVisible]   = useState(false);
+  const [searchVisible,   setSearchVisible]   = useState(false);
+
+  // ── 筛选状态 ─────────────────────────────────
+  const [starFilter,      setStarFilter]      = useState('all');
+  const [priceFilter,     setPriceFilter]     = useState('all');
+  const [sortOrder,       setSortOrder]       = useState('recommend');
+  const [breakfastFilter, setBreakfastFilter] = useState('all');
+
+  // ── 分页状态 ─────────────────────────────────
+  const [page, setPage] = useState(1);
+
+  const nights = Math.max(1, Math.round((checkOut - checkIn) / 86400000));
+
+  // ── 筛选后重置分页 ────────────────────────────
+  useEffect(() => { setPage(1); }, [city, keyword, starFilter, priceFilter, sortOrder, breakfastFilter]);
+
+  // ── 过滤 + 排序 ───────────────────────────────
   const filteredHotels = useMemo(() => {
-    return mockHotels.filter((hotel) => {
-      // 关卡 A：城市匹配 (只要地址里包含这个城市名就算通过)
-      const matchCity = city ? hotel.address.includes(city.replace('市', '')) : true;
-
-      // 关卡 B：关键字匹配 (中英文名、地址里只要包含关键字就算通过)
-      const matchKeyword = keyword
-        ? hotel.name.cn.includes(keyword) || 
-          hotel.name.en.toLowerCase().includes(keyword.toLowerCase()) || 
-          hotel.address.includes(keyword)
-        : true;
-
-      // 关卡 C：标签匹配 (数组的 every 方法：要求酒店包含【所有】你选中的标签)
-      const matchTags = selectedTags.length > 0
-        ? selectedTags.every((t) => hotel.tags?.includes(t))
-        : true;
-
-      // 关卡 D：星级匹配 (动态比较器)
-      let matchStar = true;
-      if (starFilter !== 'all') {
-        matchStar = hotel.star === parseInt(starFilter);
-      }
-
-      // 关卡 E：价格匹配 (区间比较器)
+    let list = mockHotels.filter((h) => {
+      const matchCity    = city    ? h.address.includes(city.replace('市', '')) : true;
+      const matchKw      = keyword ? h.name.cn.includes(keyword) || h.name.en.toLowerCase().includes(keyword.toLowerCase()) || h.address.includes(keyword) : true;
+      const matchTags    = initTags.length > 0 ? initTags.every(t => h.tags?.includes(t)) : true;
+      const matchStar    = starFilter  !== 'all' ? h.star === parseInt(starFilter) : true;
+      const matchBreakfast = breakfastFilter === 'yes' ? h.rooms?.some(r => r.breakfast) : true;
       let matchPrice = true;
-      if (priceFilter === '0-300') matchPrice = hotel.price <= 300;
-      else if (priceFilter === '300-600') matchPrice = hotel.price > 300 && hotel.price <= 600;
-      else if (priceFilter === '600-1000') matchPrice = hotel.price > 600 && hotel.price <= 1000;
-      else if (priceFilter === '1000+') matchPrice = hotel.price > 1000;
-
-      // 必须同时通过五道关卡！(AND 逻辑)
-      return matchCity && matchKeyword && matchTags && matchStar && matchPrice;
+      if      (priceFilter === '0-300')    matchPrice = h.price <= 300;
+      else if (priceFilter === '300-600')  matchPrice = h.price > 300 && h.price <= 600;
+      else if (priceFilter === '600-1000') matchPrice = h.price > 600 && h.price <= 1000;
+      else if (priceFilter === '1000+')    matchPrice = h.price > 1000;
+      return matchCity && matchKw && matchTags && matchStar && matchPrice && matchBreakfast;
     });
-  }, [city, keyword, selectedTags, starFilter, priceFilter]); // 依赖项增加了两个本地状态
+
+    if      (sortOrder === 'price_asc')  list = [...list].sort((a, b) => a.price - b.price);
+    else if (sortOrder === 'price_desc') list = [...list].sort((a, b) => b.price - a.price);
+    else if (sortOrder === 'score')      list = [...list].sort((a, b) => b.score - a.score);
+
+    return list;
+  }, [city, keyword, initTags.join(','), starFilter, priceFilter, sortOrder, breakfastFilter]);
+
+  // ── 当前页显示的数据 ──────────────────────────
+  const visibleHotels = filteredHotels.slice(0, page * PAGE_SIZE);
+  const hasMore       = visibleHotels.length < filteredHotels.length;
+
+  const loadMore = useCallback(() => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        setPage(p => p + 1);
+        resolve();
+      }, 600);
+    });
+  }, []);
+
+  // ── 日期工具 ──────────────────────────────────
+  const handleCheckinConfirm = (val) => {
+    setCheckIn(val);
+    if (val >= checkOut) {
+      const next = new Date(val); next.setDate(val.getDate() + 1);
+      setCheckOut(next);
+    }
+    setCheckinVisible(false);
+  };
+  const handleCheckoutConfirm = (val) => {
+    if (val <= checkIn) { Toast.show({ content: '退房须晚于入住', icon: 'fail' }); return; }
+    setCheckOut(val);
+    setCheckoutVisible(false);
+  };
+
+  // ── 星级 label map ────────────────────────────
+  const starLabel  = { all: '星级', 5: '五星', 4: '四星', 3: '三星', 2: '经济' };
+  const priceLabel = { all: '价格', '0-300': '¥~300', '300-600': '300-600', '600-1000': '600-1k', '1000+': '1k+' };
+  const sortLabel  = { recommend: '排序', price_asc: '低→高', price_desc: '高→低', score: '评分' };
+
+  const isFiltered = starFilter !== 'all' || priceFilter !== 'all' || sortOrder !== 'recommend' || breakfastFilter !== 'all';
+
+  // ── 渲染 ─────────────────────────────────────
+  return (
+    <div className="list-page">
+
+      {/* ① 顶部导航 */}
+      <div className="list-sticky-top">
+        <NavBar className="list-navbar" onBack={() => navigate(-1)}>
+          酒店列表
+        </NavBar>
+
+        {/* ① 条件栏：城市 | 入住 — 夜数 — 退房 | 人数 | 搜索 */}
+        <div className="list-cond-bar">
+          {/* 城市 */}
+          <button className="cond-chip cond-city" onClick={() => setCityVisible(true)}>
+            <EnvironmentOutline style={{ fontSize: 13, marginRight: 3 }} />
+            {city}
+          </button>
+
+          {/* 日期段 */}
+          <div className="cond-dates" onClick={() => setCheckinVisible(true)}>
+            <span className="cond-date-item">
+              <div className="cond-date-d">{fmt(checkIn)}</div>
+              <div className="cond-date-w">{weekdays[checkIn.getDay()]}</div>
+            </span>
+            <span className="cond-nights">{nights}晚</span>
+            <span className="cond-date-item cond-date-right" onClick={(e) => { e.stopPropagation(); setCheckoutVisible(true); }}>
+              <div className="cond-date-d">{fmt(checkOut)}</div>
+              <div className="cond-date-w">{weekdays[checkOut.getDay()]}</div>
+            </span>
+          </div>
+
+          {/* 人数 */}
+          <button className="cond-chip" onClick={() => setPeopleVisible(true)}>
+            {adults}人
+          </button>
+
+          {/* 搜索 */}
+          <button className="cond-chip cond-search-btn" onClick={() => setSearchVisible(true)}>
+            <SearchOutline style={{ fontSize: 14 }} />
+          </button>
+        </div>
+
+        {/* ② 筛选条 */}
+        <div className="list-filter-bar">
+          <Dropdown ref={dropdownRef}>
+            <Dropdown.Item
+              key="sort"
+              title={<span className={sortOrder !== 'recommend' ? 'filter-active' : ''}>{sortLabel[sortOrder]}</span>}
+            >
+              <div className="dropdown-content">
+                <Radio.Group value={sortOrder} onChange={(v) => { setSortOrder(v); dropdownRef.current?.close(); }}>
+                  <Space direction="vertical" block>
+                    <Radio value="recommend">综合推荐</Radio>
+                    <Radio value="price_asc">价格从低到高</Radio>
+                    <Radio value="price_desc">价格从高到低</Radio>
+                    <Radio value="score">评分最高</Radio>
+                  </Space>
+                </Radio.Group>
+              </div>
+            </Dropdown.Item>
+
+            <Dropdown.Item
+              key="star"
+              title={<span className={starFilter !== 'all' ? 'filter-active' : ''}>{starLabel[starFilter]}</span>}
+            >
+              <div className="dropdown-content">
+                <Radio.Group value={starFilter} onChange={(v) => { setStarFilter(v); dropdownRef.current?.close(); }}>
+                  <Space direction="vertical" block>
+                    <Radio value="all">不限星级</Radio>
+                    <Radio value="5">五星级 / 豪华</Radio>
+                    <Radio value="4">四星级 / 高档</Radio>
+                    <Radio value="3">三星级 / 舒适</Radio>
+                    <Radio value="2">二星级及以下 / 经济</Radio>
+                  </Space>
+                </Radio.Group>
+              </div>
+            </Dropdown.Item>
+
+            <Dropdown.Item
+              key="price"
+              title={<span className={priceFilter !== 'all' ? 'filter-active' : ''}>{priceLabel[priceFilter]}</span>}
+            >
+              <div className="dropdown-content">
+                <Radio.Group value={priceFilter} onChange={(v) => { setPriceFilter(v); dropdownRef.current?.close(); }}>
+                  <Space direction="vertical" block>
+                    <Radio value="all">不限价格</Radio>
+                    <Radio value="0-300">¥300 以下</Radio>
+                    <Radio value="300-600">¥300 – ¥600</Radio>
+                    <Radio value="600-1000">¥600 – ¥1000</Radio>
+                    <Radio value="1000+">¥1000 以上</Radio>
+                  </Space>
+                </Radio.Group>
+              </div>
+            </Dropdown.Item>
+
+            <Dropdown.Item
+              key="more"
+              title={<span className={breakfastFilter !== 'all' ? 'filter-active' : ''}>更多</span>}
+            >
+              <div className="dropdown-content">
+                <div className="dropdown-section-title">早餐</div>
+                <Radio.Group value={breakfastFilter} onChange={(v) => { setBreakfastFilter(v); dropdownRef.current?.close(); }}>
+                  <Space direction="vertical" block>
+                    <Radio value="all">不限</Radio>
+                    <Radio value="yes">含早餐</Radio>
+                  </Space>
+                </Radio.Group>
+              </div>
+            </Dropdown.Item>
+          </Dropdown>
+
+          {/* 已选筛选数量徽章 */}
+          {isFiltered && (
+            <button
+              className="filter-reset-btn"
+              onClick={() => { setStarFilter('all'); setPriceFilter('all'); setSortOrder('recommend'); setBreakfastFilter('all'); }}
+            >
+              重置
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* 结果计数 */}
+      <div className="list-result-count">
+        共 <strong>{filteredHotels.length}</strong> 家酒店 · {city} · {fmt(checkIn)}—{fmt(checkOut)} · {nights}晚 · {adults}人
+      </div>
+
+      {/* ③ 酒店列表 */}
+      <div className="list-cards">
+        {filteredHotels.length === 0 ? (
+          <div style={{ marginTop: 60 }}>
+            <ErrorBlock status="empty" title="暂无结果" description="换个条件试试吧" />
+          </div>
+        ) : (
+          <>
+            {visibleHotels.map((hotel) => (
+              <ListHotelCard
+                key={hotel.id}
+                hotel={hotel}
+                nights={nights}
+                onClick={() => navigate(`/detail/${hotel.id}`)}
+              />
+            ))}
+            <InfiniteScroll loadMore={loadMore} hasMore={hasMore} threshold={50}>
+              {hasMore
+                ? <div className="list-loading-hint">加载中…</div>
+                : <div className="list-no-more">— 已显示全部 {filteredHotels.length} 家酒店 —</div>
+              }
+            </InfiniteScroll>
+          </>
+        )}
+      </div>
+
+      {/* ── 弹层区 ── */}
+
+      {/* 城市选择 */}
+      <Popup visible={cityVisible} onMaskClick={() => setCityVisible(false)} bodyStyle={{ borderRadius: '12px 12px 0 0', padding: '20px 16px 32px' }}>
+        <div className="popup-title">选择城市</div>
+        <Space wrap>
+          {CITIES.map(c => (
+            <Button
+              key={c}
+              size="small"
+              color={city === c ? 'primary' : 'default'}
+              fill={city === c ? 'solid' : 'outline'}
+              onClick={() => { setCity(c); setCityVisible(false); }}
+            >
+              {c}
+            </Button>
+          ))}
+        </Space>
+      </Popup>
+
+      {/* 搜索框 */}
+      <Popup visible={searchVisible} onMaskClick={() => setSearchVisible(false)} bodyStyle={{ padding: '16px', borderRadius: '12px 12px 0 0' }}>
+        <div className="popup-title">搜索酒店</div>
+        <SearchBar
+          placeholder="酒店名 / 地址 / 关键词"
+          defaultValue={keyword}
+          onSearch={(v) => { setKeyword(v); setSearchVisible(false); }}
+          onClear={() => setKeyword('')}
+          showCancelButton
+          onCancel={() => setSearchVisible(false)}
+          style={{ '--border-radius': '8px' }}
+        />
+      </Popup>
+
+      {/* 人数弹层 */}
+      <Popup visible={peopleVisible} onMaskClick={() => setPeopleVisible(false)} bodyStyle={{ padding: '20px 16px 32px', borderRadius: '12px 12px 0 0' }}>
+        <div className="popup-title">入住人数</div>
+        <div className="people-row">
+          <span>成人</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Stepper min={1} max={10} value={adults} onChange={setAdults} />
+            <span className="people-count">{adults} 人</span>
+          </div>
+        </div>
+        <Button block color="primary" style={{ marginTop: 16 }} onClick={() => setPeopleVisible(false)}>确定</Button>
+      </Popup>
+
+      {/* 入住日期 */}
+      <DatePicker
+        title="入住日期"
+        visible={checkinVisible}
+        onClose={() => setCheckinVisible(false)}
+        defaultValue={checkIn}
+        min={new Date()}
+        onConfirm={handleCheckinConfirm}
+        precision="day"
+      />
+
+      {/* 退房日期 */}
+      <DatePicker
+        title="退房日期"
+        visible={checkoutVisible}
+        onClose={() => setCheckoutVisible(false)}
+        defaultValue={checkOut}
+        min={(() => { const m = new Date(checkIn); m.setDate(m.getDate() + 1); return m; })()}
+        onConfirm={handleCheckoutConfirm}
+        precision="day"
+      />
+    </div>
+  );
+}
+
+// ── 列表卡片子组件 ────────────────────────────────
+function ListHotelCard({ hotel, nights, onClick }) {
+  const { name, imageurl, tags, score, star, price, address, facilities, rooms } = hotel;
+  const hasBreakfast = rooms?.some(r => r.breakfast);
+  const minPrice = rooms ? Math.min(...rooms.map(r => r.price)) : price;
+  const totalPrice = minPrice * nights;
+
+  const renderStars = (n) =>
+    Array.from({ length: 5 }, (_, i) => (
+      <StarFill key={i} style={{ color: i < n ? '#FFB400' : '#e0e0e0', fontSize: '10px' }} />
+    ));
 
   return (
-    <div className="list-page" style={{ minHeight: '100vh', background: '#f5f5f5' }}>
-      {/* 顶部导航栏，固定在顶部 */}
-      <NavBar onBack={() => navigate(-1)} style={{ background: '#fff', position: 'sticky', top: 0, zIndex: 10 }}>
-        酒店列表
-      </NavBar>
-
-      {/* 搜索条件回显区：告诉用户现在正在看什么条件的结果 */}
-      <div style={{ padding: '10px 16px', background: '#fff', fontSize: '13px', color: '#666', marginBottom: '12px' }}>
-        {city && <span style={{ marginRight: '12px' }}>📍 {city}</span>}
-        {keyword && <span style={{ marginRight: '12px' }}>🔍 "{keyword}"</span>}
-        {selectedTags.map(tag => (
-           <span key={tag} style={{ marginRight: '6px', background: '#e6f4ff', color: '#1677ff', padding: '2px 6px', borderRadius: '4px', fontSize: '11px' }}>
-             {tag}
-           </span>
-        ))}
+    <div className="lc-card" onClick={onClick}>
+      {/* 左侧图片 */}
+      <div className="lc-img-wrap">
+        <img src={imageurl} alt={name.cn} className="lc-img" />
+        {hasBreakfast && <span className="lc-breakfast-badge">含早</span>}
       </div>
 
-      {/* --- 新增：高级筛选下拉菜单 (吸顶设计) --- */}
-      <div style={{ position: 'sticky', top: '45px', zIndex: 9, borderBottom: '1px solid #eee', background: '#fff' }}>
-        <Dropdown ref={dropdownRef}>
-          <Dropdown.Item key='star' title='酒店星级'>
-            <div style={{ padding: '16px' }}>
-              <Radio.Group value={starFilter} onChange={handleStarChange}>
-                <Space direction='vertical' block>
-                  <Radio value='all'>不限星级</Radio>
-                  <Radio value='5'>五星级/豪华</Radio>
-                  <Radio value='4'>四星级/高档</Radio>
-                  <Radio value='3'>三星级/舒适</Radio>
-                  <Radio value='2'>二星级及以下/经济</Radio>
-                </Space>
-              </Radio.Group>
-            </div>
-          </Dropdown.Item>
-          
-          <Dropdown.Item key='price' title='价格区间'>
-            <div style={{ padding: '16px' }}>
-              <Radio.Group value={priceFilter} onChange={handlePriceChange}>
-                <Space direction='vertical' block>
-                  <Radio value='all'>不限价格</Radio>
-                  <Radio value='0-300'>¥300 以下</Radio>
-                  <Radio value='300-600'>¥300 - ¥600</Radio>
-                  <Radio value='600-1000'>¥600 - ¥1000</Radio>
-                  <Radio value='1000+'>¥1000 以上</Radio>
-                </Space>
-              </Radio.Group>
-            </div>
-          </Dropdown.Item>
-        </Dropdown>
-      </div>
+      {/* 右侧信息 */}
+      <div className="lc-body">
+        {/* 第一行：名称 + 评分 */}
+        <div className="lc-row lc-name-row">
+          <span className="lc-name">{name.cn}</span>
+          <span className="lc-score">{score}</span>
+        </div>
 
-      {/* 列表渲染区 */}
-      <div style={{ padding: '0 16px 20px' }}>
-        {filteredHotels.length > 0 ? (
-          // 如果有数据，循环渲染 HotelCard
-          filteredHotels.map((hotel) => (
-            <div key={hotel.id} style={{ marginBottom: '12px' }}>
-              <HotelCard 
-                data={hotel} 
-                onClick={() => navigate(`/detail/${hotel.id}`)} 
-              />
-            </div>
-          ))
-        ) : (
-          // 2. 使用更规范的 ErrorBlock 组件渲染空状态
-          <div style={{ marginTop: '60px' }}>
-            <ErrorBlock 
-              status='empty' 
-              title='暂无结果' 
-              description='没有找到符合条件的酒店，请换个关键词试试' 
-            />
+        {/* 第二行：星级 */}
+        <div className="lc-stars">
+          {renderStars(star)}
+          <span className="lc-star-text">{star}星级</span>
+        </div>
+
+        {/* 第三行：设施/特色标签 */}
+        <div className="lc-tags">
+          {(facilities || tags).slice(0, 3).map(t => (
+            <span key={t} className="lc-tag">{t}</span>
+          ))}
+        </div>
+
+        {/* 第四行：地址 */}
+        <div className="lc-address">
+          <EnvironmentOutline style={{ fontSize: 11, marginRight: 2, color: '#bbb', flexShrink: 0 }} />
+          <span>{address}</span>
+        </div>
+
+        {/* 第五行：价格 */}
+        <div className="lc-price-row">
+          <span className="lc-price-note">{nights}晚合计</span>
+          <div className="lc-price">
+            <span className="lc-price-unit">¥</span>
+            <span className="lc-price-num">{totalPrice}</span>
           </div>
-        )}
+          <span className="lc-per">起</span>
+        </div>
       </div>
     </div>
   );
