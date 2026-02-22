@@ -13,6 +13,9 @@ const PAGE_SIZE = 4;
 const CITIES = ['上海', '南京', '北京', '杭州', '成都', '广州'];
 const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 const fmt = (d) => `${d.getMonth() + 1}/${d.getDate()}`;
+const QUICK_TAGS = ['免费停车场', '含早餐', '近地铁', '亲子酒店', '健身房', 'SPA', '湖景', '江景房'];
+const scoreLevel = (s) => s >= 4.8 ? '超棒' : s >= 4.5 ? '好评' : s >= 4.0 ? '不错' : '尚可';
+const scoreBadgeClass = (s) => s >= 4.8 ? 'score-orange' : s >= 4.5 ? 'score-blue' : s >= 4.0 ? 'score-green' : 'score-gray';
 
 export default function ListPage() {
   const navigate = useNavigate();
@@ -47,6 +50,7 @@ export default function ListPage() {
   const [priceFilter,     setPriceFilter]     = useState('all');
   const [sortOrder,       setSortOrder]       = useState('recommend');
   const [breakfastFilter, setBreakfastFilter] = useState('all');
+  const [quickTagFilter,  setQuickTagFilter]  = useState([]);
 
   // ── 分页状态 ─────────────────────────────────
   const [page, setPage] = useState(1);
@@ -54,7 +58,7 @@ export default function ListPage() {
   const nights = Math.max(1, Math.round((checkOut - checkIn) / 86400000));
 
   // ── 筛选后重置分页 ────────────────────────────
-  useEffect(() => { setPage(1); }, [city, keyword, starFilter, priceFilter, sortOrder, breakfastFilter]);
+  useEffect(() => { setPage(1); }, [city, keyword, starFilter, priceFilter, sortOrder, breakfastFilter, quickTagFilter]);
 
   // ── 过滤 + 排序 ───────────────────────────────
   const filteredHotels = useMemo(() => {
@@ -64,12 +68,15 @@ export default function ListPage() {
       const matchTags    = initTags.length > 0 ? initTags.every(t => h.tags?.includes(t)) : true;
       const matchStar    = starFilter  !== 'all' ? h.star === parseInt(starFilter) : true;
       const matchBreakfast = breakfastFilter === 'yes' ? h.rooms?.some(r => r.breakfast) : true;
+      const matchQuick   = quickTagFilter.length > 0
+        ? quickTagFilter.every(t => [...(h.tags||[]), ...(h.facilities||[])].includes(t))
+        : true;
       let matchPrice = true;
       if      (priceFilter === '0-300')    matchPrice = h.price <= 300;
       else if (priceFilter === '300-600')  matchPrice = h.price > 300 && h.price <= 600;
       else if (priceFilter === '600-1000') matchPrice = h.price > 600 && h.price <= 1000;
       else if (priceFilter === '1000+')    matchPrice = h.price > 1000;
-      return matchCity && matchKw && matchTags && matchStar && matchPrice && matchBreakfast;
+      return matchCity && matchKw && matchTags && matchStar && matchPrice && matchBreakfast && matchQuick;
     });
 
     if      (sortOrder === 'price_asc')  list = [...list].sort((a, b) => a.price - b.price);
@@ -77,7 +84,7 @@ export default function ListPage() {
     else if (sortOrder === 'score')      list = [...list].sort((a, b) => b.score - a.score);
 
     return list;
-  }, [city, keyword, initTags.join(','), starFilter, priceFilter, sortOrder, breakfastFilter]);
+  }, [city, keyword, initTags.join(','), starFilter, priceFilter, sortOrder, breakfastFilter, quickTagFilter]);
 
   // ── 当前页显示的数据 ──────────────────────────
   const visibleHotels = filteredHotels.slice(0, page * PAGE_SIZE);
@@ -124,7 +131,7 @@ export default function ListPage() {
           酒店列表
         </NavBar>
 
-        {/* ① 条件栏：城市 | 入住 — 夜数 — 退房 | 人数 | 搜索 */}
+        {/* ① 条件栏：单行布局 */}
         <div className="list-cond-bar">
           {/* 城市 */}
           <button className="cond-chip cond-city" onClick={() => setCityVisible(true)}>
@@ -139,20 +146,20 @@ export default function ListPage() {
               <div className="cond-date-w">{weekdays[checkIn.getDay()]}</div>
             </span>
             <span className="cond-nights">{nights}晚</span>
-            <span className="cond-date-item cond-date-right" onClick={(e) => { e.stopPropagation(); setCheckoutVisible(true); }}>
+            <span className="cond-date-item" onClick={(e) => { e.stopPropagation(); setCheckoutVisible(true); }}>
               <div className="cond-date-d">{fmt(checkOut)}</div>
               <div className="cond-date-w">{weekdays[checkOut.getDay()]}</div>
             </span>
           </div>
 
           {/* 人数 */}
-          <button className="cond-chip" onClick={() => setPeopleVisible(true)}>
+          <button className="cond-chip cond-people" onClick={() => setPeopleVisible(true)}>
             {adults}人
           </button>
 
-          {/* 搜索 */}
+          {/* 搜索图标 */}
           <button className="cond-chip cond-search-btn" onClick={() => setSearchVisible(true)}>
-            <SearchOutline style={{ fontSize: 14 }} />
+            <SearchOutline style={{ fontSize: 15, color: '#666' }} />
           </button>
         </div>
 
@@ -237,9 +244,24 @@ export default function ListPage() {
         </div>
       </div>
 
+      {/* 快捷标签筛选行 */}
+      <div className="quick-tags-row">
+        {QUICK_TAGS.map(tag => (
+          <button
+            key={tag}
+            className={`quick-tag${quickTagFilter.includes(tag) ? ' active' : ''}`}
+            onClick={() => setQuickTagFilter(prev =>
+              prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+            )}
+          >
+            {tag}
+          </button>
+        ))}
+      </div>
+
       {/* 结果计数 */}
       <div className="list-result-count">
-        共 <strong>{filteredHotels.length}</strong> 家酒店 · {city} · {fmt(checkIn)}—{fmt(checkOut)} · {nights}晚 · {adults}人
+        共 <strong>{filteredHotels.length}</strong> 家 · {city} · {fmt(checkIn)}—{fmt(checkOut)} · {nights}晚 · {adults}人
       </div>
 
       {/* ③ 酒店列表 */}
@@ -346,7 +368,7 @@ function ListHotelCard({ hotel, nights, onClick }) {
   const hasBreakfast = rooms?.some(r => r.breakfast);
   const minPrice = rooms ? Math.min(...rooms.map(r => r.price)) : price;
   const totalPrice = minPrice * nights;
-
+  // 模拟评论数（真实项目从接口获取）
   const renderStars = (n) =>
     Array.from({ length: 5 }, (_, i) => (
       <StarFill key={i} style={{ color: i < n ? '#FFB400' : '#e0e0e0', fontSize: '10px' }} />
@@ -362,40 +384,50 @@ function ListHotelCard({ hotel, nights, onClick }) {
 
       {/* 右侧信息 */}
       <div className="lc-body">
-        {/* 第一行：名称 + 评分 */}
-        <div className="lc-row lc-name-row">
-          <span className="lc-name">{name.cn}</span>
-          <span className="lc-score">{score}</span>
-        </div>
 
-        {/* 第二行：星级 */}
-        <div className="lc-stars">
-          {renderStars(star)}
-          <span className="lc-star-text">{star}星级</span>
-        </div>
-
-        {/* 第三行：设施/特色标签 */}
-        <div className="lc-tags">
-          {(facilities || tags).slice(0, 3).map(t => (
-            <span key={t} className="lc-tag">{t}</span>
-          ))}
-        </div>
-
-        {/* 第四行：地址 */}
-        <div className="lc-address">
-          <EnvironmentOutline style={{ fontSize: 11, marginRight: 2, color: '#bbb', flexShrink: 0 }} />
-          <span>{address}</span>
-        </div>
-
-        {/* 第五行：价格 */}
-        <div className="lc-price-row">
-          <span className="lc-price-note">{nights}晚合计</span>
-          <div className="lc-price">
-            <span className="lc-price-unit">¥</span>
-            <span className="lc-price-num">{totalPrice}</span>
+        {/* ── 上半区 ── */}
+        <div>
+          {/* 第一行：名称 + 评分徽章 */}
+          <div className="lc-name-row">
+            <span className="lc-name">{name.cn}</span>
+            <div className={`lc-score-badge ${scoreBadgeClass(score)}`}>
+              <span className="lc-score-num">{score}</span>
+              <span className="lc-score-label">{scoreLevel(score)}</span>
+            </div>
           </div>
-          <span className="lc-per">起</span>
+
+          {/* 第二行：星级 */}
+          <div className="lc-stars-row">
+            {renderStars(star)}
+            <span className="lc-star-text">{star}星</span>
+          </div>
+
+          {/* 第三行：地址 */}
+          <div className="lc-address">
+            <EnvironmentOutline style={{ fontSize: 11, marginRight: 3, color: '#bbb', flexShrink: 0 }} />
+            <span>{address}</span>
+          </div>
+
+          {/* 第四行：设施标签 */}
+          <div className="lc-tags">
+            {(facilities || tags).slice(0, 3).map(t => (
+              <span key={t} className="lc-tag">{t}</span>
+            ))}
+          </div>
         </div>
+
+        {/* ── 下半区：价格 ── */}
+        <div className="lc-price-area">
+          <div>
+            <div className="lc-price-main">
+              <span className="lc-price-unit">¥</span>
+              <span className="lc-price-num">{minPrice}</span>
+              <span className="lc-price-per">起/晚</span>
+            </div>
+            <div className="lc-price-total">{nights}晚共¥{totalPrice}</div>
+          </div>
+        </div>
+
       </div>
     </div>
   );

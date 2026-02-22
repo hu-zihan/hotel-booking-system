@@ -9,6 +9,9 @@ import HotelCard from '../../components/hotelCard';
 // --- 新增逻辑 1: 提取热门标签 (放在组件外，只计算一次) ---
 // flatMap 把所有酒店的 tags 数组铺平，Set 去重，slice 取前 5 个
 const hotTags = [...new Set(mockHotels.flatMap(h => h.tags || []))].slice(0, 5);
+const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+const fmt = (d) => `${d.getMonth() + 1}月${d.getDate()}日`;
+const getNights = (range) => Math.max(1, Math.round((range[1] - range[0]) / 86400000));
 
 export default function MobileHome() {
   const navigate = useNavigate();
@@ -165,37 +168,25 @@ export default function MobileHome() {
 
   // 渲染顶部 Banner 区域的函数
   const renderBanner = () => {
-    // 我们选取数组中的第一个酒店作为广告推荐
-    const bannerHotel = mockHotels[0];
-
+    const bannerHotels = mockHotels.slice(0, 4);
     return (
-      <div className="home-banner" style={{ padding: '12px' }}>
-        <Swiper autoplay loop style={{ '--border-radius': '12px' }}>
-          <Swiper.Item>
-            <div
-              // 点击 Banner 直接触发跳转逻辑，通过反引号嵌入酒店 ID
-              onClick={() => navigate(`/detail/${bannerHotel.id}`)}
-              style={{ position: 'relative', cursor: 'pointer' }}
-            >
-              <Image
-                src={bannerHotel.imageurl} // 使用 mock 数据中的 banner 大图
-                alt="酒店广告"
-                fit="cover"
-                style={{ width: '100%', height: '160px', borderRadius: '12px' }}
-              />
-              {/* 在 Banner 上方叠加文字提示 */}
-              <div style={{
-                position: 'absolute',
-                bottom: '10px',
-                left: '10px',
-                color: '#fff',
-                textShadow: '0 2px 4px rgba(0,0,0,0.5)',
-                fontWeight: 'bold'
-              }}>
-                今日特惠：{bannerHotel.name.cn}
+      <div className="home-banner">
+        <Swiper autoplay loop style={{ '--height': '220px' }}>
+          {bannerHotels.map(h => (
+            <Swiper.Item key={h.id}>
+              <div
+                onClick={() => navigate(`/detail/${h.id}`)}
+                style={{ position: 'relative', height: '220px', cursor: 'pointer' }}
+              >
+                <img src={h.imageurl} alt={h.name.cn} className="home-banner-img" />
+                <div className="home-banner-mask" />
+                <div className="home-banner-text">
+                  <span className="home-banner-tag">今日特惠</span>
+                  <div className="home-banner-name">{h.name.cn}</div>
+                </div>
               </div>
-            </div>
-          </Swiper.Item>
+            </Swiper.Item>
+          ))}
         </Swiper>
       </div>
     );
@@ -220,14 +211,27 @@ export default function MobileHome() {
           </div>
         </div>
 
-        {/* 日期选择 - 文档要求必考点 */}
-        <div className="search-row border-bottom" onClick={() => setCalendarVisible(true)}>
-          <div className="date-info">
-            <span className="date-label">入住 - 离店</span>
-            <span className="date-value">
-              {dateRange 
-                ? `${dateRange[0].toLocaleDateString()} 至 ${dateRange[1].toLocaleDateString()}` 
-                : '请选择日期'}
+        {/* 日期选择 */}
+        <div className="date-row" onClick={() => setCalendarVisible(true)}>
+          <div className="date-block">
+            <span className="date-block-label">入住</span>
+            <span className={`date-block-value${!dateRange ? ' placeholder' : ''}`}>
+              {dateRange ? fmt(dateRange[0]) : '请选择'}
+            </span>
+            <span className="date-block-week">
+              {dateRange ? weekdays[dateRange[0].getDay()] : ''}
+            </span>
+          </div>
+          <div className="date-nights-center">
+            {dateRange ? `${getNights(dateRange)}晚` : '选日期'}
+          </div>
+          <div className="date-block date-block-right">
+            <span className="date-block-label">离店</span>
+            <span className={`date-block-value${!dateRange ? ' placeholder' : ''}`}>
+              {dateRange ? fmt(dateRange[1]) : '请选择'}
+            </span>
+            <span className="date-block-week">
+              {dateRange ? weekdays[dateRange[1].getDay()] : ''}
             </span>
           </div>
         </div>
@@ -268,9 +272,13 @@ export default function MobileHome() {
         </Button>
       </div>
 
-        {/* 3.推荐酒店列表容器 */}
-      <div className="hotel-list-container" style={{ padding: '16px', background: '#f5f5f5' }}>
-        <h3 style={{ marginBottom: '12px' }}>热门推荐</h3>
+      {/* 3. 推荐酒店列表容器 */}
+      <div className="hotel-list-container">
+        <div className="section-header">
+          <div className="section-header-line" />
+          <span className="section-header-title">热门推荐</span>
+          <span className="section-header-sub">精选好评酒店</span>
+        </div>
     
          {mockHotels.map((hotel) => (
           <HotelCard 

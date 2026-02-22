@@ -1,7 +1,7 @@
 /* HotelDetail 页面样式  */
 
 .detail-page {
-  background: #f5f5f5;
+  background: #f2f4f8;
   min-height: 100vh;
   padding-bottom: 72px;
 }
@@ -82,9 +82,12 @@
 }
 
 .detail-score {
-  font-size: 17px;
+  font-size: 14px;
   font-weight: bold;
-  color: #0086F6;
+  color: #fff;
+  background: linear-gradient(135deg, #0086F6, #36b8ff);
+  border-radius: 6px 6px 0 6px;
+  padding: 4px 10px;
 }
 
 /* 设施标题行 */
@@ -114,9 +117,10 @@
   font-size: 15px;
   font-weight: bold;
   color: #222;
-  padding-bottom: 10px;
+  padding: 0 0 10px 10px;
   margin-bottom: 12px;
   border-bottom: 1px solid #f0f0f0;
+  border-left: 3px solid #0086F6;
 }
 
 /* 日期选择行 */
@@ -160,13 +164,16 @@
 /* 中间夜数徽章 */
 .detail-nights-badge {
   flex-shrink: 0;
-  background: #0086F6;
+  background: linear-gradient(135deg, #0086F6, #36b8ff);
   color: #fff;
-  border-radius: 14px;
-  padding: 5px 12px;
-  font-size: 12px;
+  border-radius: 18px;
+  padding: 8px 20px;
+  font-size: 15px;
+  font-weight: 700;
   white-space: nowrap;
   margin: 0 10px;
+  box-shadow: 0 2px 10px rgba(0, 134, 246, 0.35);
+  letter-spacing: 0.5px;
 }
 
 /* 人数选择行 */
@@ -200,7 +207,7 @@
 }
 
 .detail-rooms-card .detail-section-title {
-  padding: 14px 16px 10px;
+  padding: 14px 16px 10px 19px;
   margin-bottom: 0;
 }
 
@@ -216,10 +223,10 @@
 }
 
 .detail-room-thumb {
-  width: 82px;
-  height: 62px;
+  width: 115px;
+  height: 86px;
   object-fit: cover;
-  border-radius: 6px;
+  border-radius: 8px;
   flex-shrink: 0;
 }
 
