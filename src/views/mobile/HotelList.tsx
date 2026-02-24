@@ -5,17 +5,44 @@ import {
   Popup, DatePicker, Stepper, InfiniteScroll, ErrorBlock, Toast,
 } from 'antd-mobile';
 import { EnvironmentOutline, StarFill, SearchOutline } from 'antd-mobile-icons';
-import { mockHotels } from '../../mockData';
+import { searchHotels, Hotel, SearchParams } from '../../api';
 import './HotelList.css';
 
+// 酒店卡片数据类型
+interface HotelCardData {
+  id: string;
+  name: { cn: string; en: string };
+  address: string;
+  star: number;
+  price: number;
+  min_price: number;
+  imageurl: string;
+  banner_urls?: string[];
+  location?: { lat: number; lon: number };
+  distance?: number;
+  tags: string[];
+  facilities: string[];
+  rooms?: { breakfast: boolean }[];
+  score?: number;
+}
+
 // ── 常量 ────────────────────────────────────────
-const PAGE_SIZE = 4;
 const CITIES = ['上海', '南京', '北京', '杭州', '成都', '广州'];
 const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-const fmt = (d) => `${d.getMonth() + 1}/${d.getDate()}`;
+const fmt = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`;
 const QUICK_TAGS = ['免费停车场', '含早餐', '近地铁', '亲子酒店', '健身房', 'SPA', '湖景', '江景房'];
-const scoreLevel = (s) => s >= 4.8 ? '超棒' : s >= 4.5 ? '好评' : s >= 4.0 ? '不错' : '尚可';
-const scoreBadgeClass = (s) => s >= 4.8 ? 'score-orange' : s >= 4.5 ? 'score-blue' : s >= 4.0 ? 'score-green' : 'score-gray';
+const scoreLevel = (s: number) => s >= 4.8 ? '超棒' : s >= 4.5 ? '好评' : s >= 4.0 ? '不错' : '尚可';
+const scoreBadgeClass = (s: number) => s >= 4.8 ? 'score-orange' : s >= 4.5 ? 'score-blue' : s >= 4.0 ? 'score-green' : 'score-gray';
+
+// 城市名到 adcode 的映射
+const CITY_ADCODE_MAP: Record<string, string> = {
+  '上海': '310100',
+  '南京': '320100',
+  '北京': '110000',
+  '杭州': '330100',
+  '成都': '510100',
+  '广州': '440100',
+};
 
 export default function ListPage() {
   const navigate = useNavigate();
@@ -32,72 +59,124 @@ export default function ListPage() {
   const today    = new Date();
   const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
 
-  const [city, setCity]               = useState(initCity);
-  const [keyword, setKeyword]         = useState(initKeyword);
-  const [checkIn, setCheckIn]         = useState(today);
-  const [checkOut, setCheckOut]       = useState(tomorrow);
-  const [adults, setAdults]           = useState(2);
+  const [city, setCity]               = useState<string>(initCity);
+  const [keyword, setKeyword]         = useState<string>(initKeyword);
+  const [checkIn, setCheckIn]         = useState<Date>(today);
+  const [checkOut, setCheckOut]       = useState<Date>(tomorrow);
+  const [adults, setAdults]           = useState<number>(2);
+
+  // ── 数据状态 ────────────────────────────────
+  const [hotels, setHotels]           = useState<HotelCardData[]>([]);
+  const [loading, setLoading]         = useState<boolean>(false);
+  const [total, setTotal]             = useState<number>(0);
 
   // 弹层控制
-  const [cityVisible,     setCityVisible]     = useState(false);
-  const [checkinVisible,  setCheckinVisible]  = useState(false);
-  const [checkoutVisible, setCheckoutVisible] = useState(false);
-  const [peopleVisible,   setPeopleVisible]   = useState(false);
-  const [searchVisible,   setSearchVisible]   = useState(false);
+  const [cityVisible,     setCityVisible]     = useState<boolean>(false);
+  const [checkinVisible,  setCheckinVisible]  = useState<boolean>(false);
+  const [checkoutVisible, setCheckoutVisible] = useState<boolean>(false);
+  const [peopleVisible,   setPeopleVisible]   = useState<boolean>(false);
+  const [searchVisible,   setSearchVisible]   = useState<boolean>(false);
 
   // ── 筛选状态 ─────────────────────────────────
-  const [starFilter,      setStarFilter]      = useState('all');
-  const [priceFilter,     setPriceFilter]     = useState('all');
-  const [sortOrder,       setSortOrder]       = useState('recommend');
-  const [breakfastFilter, setBreakfastFilter] = useState('all');
-  const [quickTagFilter,  setQuickTagFilter]  = useState([]);
+  const [starFilter,      setStarFilter]      = useState<string>('all');
+  const [priceFilter,     setPriceFilter]     = useState<string>('all');
+  const [sortOrder,       setSortOrder]       = useState<string>('recommend');
+  const [breakfastFilter, setBreakfastFilter] = useState<string>('all');
+  const [quickTagFilter,  setQuickTagFilter]  = useState<string[]>([]);
 
   // ── 分页状态 ─────────────────────────────────
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState<number>(1);
+  const PAGE_SIZE = 10;
 
-  const nights = Math.max(1, Math.round((checkOut - checkIn) / 86400000));
+  const nights = Math.max(1, Math.round((checkOut.getTime() - checkIn.getTime()) / 86400000));
+
+  // ── 获取酒店列表 ─────────────────────────────
+  const fetchHotels = useCallback(async (pageNum = 1, isLoadMore = false) => {
+    setLoading(true);
+    try {
+      // 构建筛选参数
+      const params = {
+        q: keyword,
+        page: pageNum,
+        pageSize: PAGE_SIZE,
+        adcode: CITY_ADCODE_MAP[city],
+      };
+
+      // 价格筛选
+      if (priceFilter === '0-300') {
+        params.maxPrice = 300;
+      } else if (priceFilter === '300-600') {
+        params.minPrice = 300;
+        params.maxPrice = 600;
+      } else if (priceFilter === '600-1000') {
+        params.minPrice = 600;
+        params.maxPrice = 1000;
+      } else if (priceFilter === '1000+') {
+        params.minPrice = 1000;
+      }
+
+      // 星级筛选
+      if (starFilter !== 'all') {
+        params.minStar = parseInt(starFilter);
+        params.maxStar = parseInt(starFilter);
+      }
+
+      const result = await searchHotels(params);
+
+      if (result.ok) {
+        // 格式化后端数据为前端需要的格式
+        const formattedHotels = result.data.hotels.map(h => ({
+          id: h.id,
+          name: { cn: h.name, en: h.name },
+          address: h.address,
+          star: h.star,
+          price: h.min_price,
+          min_price: h.min_price,
+          imageurl: h.banner_urls?.[0] || '',
+          banner_urls: h.banner_urls,
+          location: h.location,
+          distance: h.distance,
+          tags: [],
+          facilities: [],
+        }));
+
+        if (isLoadMore) {
+          setHotels(prev => [...prev, ...formattedHotels]);
+        } else {
+          setHotels(formattedHotels);
+        }
+        setTotal(result.data.pagination.total);
+      }
+    } catch (error) {
+      console.error('获取酒店列表失败:', error);
+      Toast.show({
+        icon: 'fail',
+        content: '获取酒店列表失败',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [city, keyword, starFilter, priceFilter]);
+
+  // 首次加载和筛选条件变化时获取数据
+  useEffect(() => {
+    setPage(1);
+    fetchHotels(1, false);
+  }, [city, keyword, starFilter, priceFilter]);
 
   // ── 筛选后重置分页 ────────────────────────────
   useEffect(() => { setPage(1); }, [city, keyword, starFilter, priceFilter, sortOrder, breakfastFilter, quickTagFilter]);
 
-  // ── 过滤 + 排序 ───────────────────────────────
-  const filteredHotels = useMemo(() => {
-    let list = mockHotels.filter((h) => {
-      const matchCity    = city    ? h.address.includes(city.replace('市', '')) : true;
-      const matchKw      = keyword ? h.name.cn.includes(keyword) || h.name.en.toLowerCase().includes(keyword.toLowerCase()) || h.address.includes(keyword) : true;
-      const matchTags    = initTags.length > 0 ? initTags.every(t => h.tags?.includes(t)) : true;
-      const matchStar    = starFilter  !== 'all' ? h.star === parseInt(starFilter) : true;
-      const matchBreakfast = breakfastFilter === 'yes' ? h.rooms?.some(r => r.breakfast) : true;
-      const matchQuick   = quickTagFilter.length > 0
-        ? quickTagFilter.every(t => [...(h.tags||[]), ...(h.facilities||[])].includes(t))
-        : true;
-      let matchPrice = true;
-      if      (priceFilter === '0-300')    matchPrice = h.price <= 300;
-      else if (priceFilter === '300-600')  matchPrice = h.price > 300 && h.price <= 600;
-      else if (priceFilter === '600-1000') matchPrice = h.price > 600 && h.price <= 1000;
-      else if (priceFilter === '1000+')    matchPrice = h.price > 1000;
-      return matchCity && matchKw && matchTags && matchStar && matchPrice && matchBreakfast && matchQuick;
-    });
-
-    if      (sortOrder === 'price_asc')  list = [...list].sort((a, b) => a.price - b.price);
-    else if (sortOrder === 'price_desc') list = [...list].sort((a, b) => b.price - a.price);
-    else if (sortOrder === 'score')      list = [...list].sort((a, b) => b.score - a.score);
-
-    return list;
-  }, [city, keyword, initTags.join(','), starFilter, priceFilter, sortOrder, breakfastFilter, quickTagFilter]);
-
   // ── 当前页显示的数据 ──────────────────────────
-  const visibleHotels = filteredHotels.slice(0, page * PAGE_SIZE);
-  const hasMore       = visibleHotels.length < filteredHotels.length;
+  const visibleHotels = hotels;
+  const hasMore = hotels.length < total;
 
-  const loadMore = useCallback(() => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        setPage(p => p + 1);
-        resolve();
-      }, 600);
-    });
-  }, []);
+  const loadMore = useCallback(async () => {
+    if (loading) return;
+    const nextPage = page + 1;
+    setPage(nextPage);
+    await fetchHotels(nextPage, true);
+  }, [page, loading, fetchHotels]);
 
   // ── 日期工具 ──────────────────────────────────
   const handleCheckinConfirm = (val) => {

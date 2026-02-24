@@ -1,16 +1,41 @@
 import { useState } from 'react';
 import { Form, Input, Button, Toast, Divider } from 'antd-mobile';
-import { useNavigate } from 'react-router-dom'; // 稍后安装路由后使用
+import { useNavigate } from 'react-router-dom';
+import { login } from '../../api';
 import './Login.css';
 
 export default function MobileUserLogin() {
-  const onFinish = (values) => {
-    console.log('用户登录数据:', values);
-    Toast.show({
-      icon: 'success',
-      content: '登录成功',
-    });
-    // 登录成功后通常返回首页或之前的页面
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+
+  const onFinish = async (values) => {
+    setLoading(true);
+    try {
+      const result = await login(values.username, values.password);
+
+      if (result.ok) {
+        Toast.show({
+          icon: 'success',
+          content: '登录成功',
+        });
+        // 登录成功后返回上一页或首页
+        setTimeout(() => {
+          navigate(-1);
+        }, 500);
+      } else {
+        Toast.show({
+          icon: 'fail',
+          content: result.error || '登录失败',
+        });
+      }
+    } catch (error) {
+      Toast.show({
+        icon: 'fail',
+        content: error.message || '登录失败',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -29,8 +54,8 @@ export default function MobileUserLogin() {
           </Button>
         }
       >
-        <Form.Item name='mobile' label='手机号' rules={[{ required: true, message: '请输入手机号' }]}>
-          <Input placeholder='请输入手机号' clearable />
+        <Form.Item name='username' label='用户名' rules={[{ required: true, message: '请输入用户名' }]}>
+          <Input placeholder='请输入用户名' clearable />
         </Form.Item>
         <Form.Item name='password' label='密码' rules={[{ required: true, message: '请输入密码' }]}>
           <Input placeholder='请输入密码' type='password' clearable />

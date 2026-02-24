@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import MobileHome from './views/mobile/Home';
 import MobileUserLogin from './views/mobile/Login';
 import HotelDetail from './views/mobile/HotelDetail';
-import ListPage from './views/mobile/HotelList.jsx';
+import ListPage from './views/mobile/HotelList';
 
 function App() {
   return (

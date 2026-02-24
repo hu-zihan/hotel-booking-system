@@ -1,35 +1,83 @@
-import React, { useState } from 'react';
-import { Button, Calendar, SearchBar, Tag,Popup,Swiper, Image, Toast } from 'antd-mobile';
+import React, { useState, useEffect } from 'react';
+import { Button, Calendar, SearchBar, Tag,Popup,Swiper, Image, Toast, Loading } from 'antd-mobile';
 import { EnvironmentOutline } from 'antd-mobile-icons';
-import { mockHotels } from '../../mockData'; // 指向写好的 mockData.js
+import { getPopularHotels, reverseGeocode, Hotel } from '../../api';
 import './Home.css';
 import { useNavigate } from 'react-router-dom';
 import HotelCard from '../../components/hotelCard';
 
-// --- 新增逻辑 1: 提取热门标签 (放在组件外，只计算一次) ---
-// flatMap 把所有酒店的 tags 数组铺平，Set 去重，slice 取前 5 个
-const hotTags = [...new Set(mockHotels.flatMap(h => h.tags || []))].slice(0, 5);
 const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-const fmt = (d) => `${d.getMonth() + 1}月${d.getDate()}日`;
-const getNights = (range) => Math.max(1, Math.round((range[1] - range[0]) / 86400000));
+const fmt = (d: Date) => `${d.getMonth() + 1}月${d.getDate()}日`;
+const getNights = (range: Date[]) => Math.max(1, Math.round((range[1].getTime() - range[0].getTime()) / 86400000));
+
+// 酒店卡片数据类型
+interface HotelCardData {
+  id: string;
+  name: { cn: string; en: string };
+  address: string;
+  star: number;
+  price: number;
+  min_price: number;
+  imageurl: string;
+  tags: string[];
+  score?: number;
+}
 
 export default function MobileHome() {
   const navigate = useNavigate();
   // 状态：控制日历弹出层
   const [calendarVisible, setCalendarVisible] = useState(false);
   // 状态：存储选中的日期范围
-  const [dateRange, setDateRange] = useState(null);
+  const [dateRange, setDateRange] = useState<Date[] | null>(null);
   // 临时状态：存储用户正在选择的日期（点击确认后才正式保存到 dateRange）
-  const [tempDateRange, setTempDateRange] = useState(null);
+  const [tempDateRange, setTempDateRange] = useState<Date[] | null>(null);
   // 状态：存储当前城市
   const [currentCity, setCurrentCity] = useState('上海');
   // 状态：定位加载中
   const [locating, setLocating] = useState(false);
-  // 从 mock 数据中随机选一个酒店作为 Banner 推荐
-  const bannerHotel = mockHotels[Math.floor(Math.random() * mockHotels.length)];
-  //  搜索与筛选 
+  //  搜索与筛选
   const [keyword, setKeyword] = useState(''); // 搜索关键字
-  const [selectedTags, setSelectedTags] = useState([]); // 已选中的标签
+  const [selectedTags, setSelectedTags] = useState<string[]>([]); // 已选中的标签
+
+  // ── 热门酒店数据 ────────────────────────────
+  const [hotels, setHotels] = useState<HotelCardData[]>([]);
+  const [hotTags, setHotTags] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // 加载热门酒店
+  useEffect(() => {
+    const fetchPopularHotels = async () => {
+      try {
+        const result = await getPopularHotels(10);
+        if (result.ok && result.data.popular) {
+          const formatted = result.data.popular.map(h => ({
+            id: h.id,
+            name: { cn: h.name, en: h.name },
+            star: h.star,
+            price: h.min_price,
+            min_price: h.min_price,
+            imageurl: h.banner_urls?.[0] || '',
+            tags: [],
+            address: h.address || '',
+            score: 0,
+          }));
+          setHotels(formatted);
+
+          // 提取热门标签（暂时使用空数组，后端数据有标签时再处理）
+          setHotTags([]);
+        }
+      } catch (error) {
+        console.error('获取热门酒店失败:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPopularHotels();
+  }, []);
+
+  // Banner 酒店
+  const bannerHotel = hotels.length > 0 ? hotels[Math.floor(Math.random() * hotels.length)] : null;
 
   // 获取当前位置的函数
   const handleGetLocation = () => {
@@ -56,29 +104,19 @@ export default function MobileHome() {
         console.log('获取到的坐标：', latitude, longitude);
 
         try {
-          // 使用URLSearchParams构建查询参数，发送GET请求
-          const params = new URLSearchParams({
-            latitude,
-            longitude
-          });
-          const response = await fetch(`/api/location/geocode?${params}`);
+          const result = await reverseGeocode(latitude, longitude);
 
-          if (!response.ok) {
-            throw new Error('后端接口调用失败');
-          }
-
-          const data = await response.json();
-          
-          // 后端返回格式：{ ok: true, location: { city: '上海市', adcode: '310100' } }
-          if (data.ok && data.location && data.location.city) {
-            setCurrentCity(data.location.city);
+          if (result.ok && result.location && result.location.city) {
+            // 去掉"市"字
+            const cityName = result.location.city.replace('市', '');
+            setCurrentCity(cityName);
             Toast.clear();
             Toast.show({
               icon: 'success',
-              content: `定位成功：${data.location.city}`,
+              content: `定位成功：${result.location.city}`,
             });
           } else {
-            throw new Error(data.message || '解析位置失败');
+            throw new Error('解析位置失败');
           }
         } catch (error) {
           console.error('定位失败：', error);
@@ -96,7 +134,7 @@ export default function MobileHome() {
         console.error('定位失败：', error);
         setLocating(false);
         Toast.clear();
-        
+
         let errorMsg = '定位失败';
         switch(error.code) {
           case error.PERMISSION_DENIED:
@@ -111,7 +149,7 @@ export default function MobileHome() {
           default:
             errorMsg = '未知的定位错误';
         }
-        
+
         Toast.show({
           icon: 'fail',
           content: errorMsg,
@@ -127,7 +165,7 @@ export default function MobileHome() {
   };
 
   // 标签点击切换
-  const toggleTag = (tag) => {
+  const toggleTag = (tag: string) => {
     if (selectedTags.includes(tag)) {
       setSelectedTags(selectedTags.filter(t => t !== tag));
     } else {
@@ -168,7 +206,16 @@ export default function MobileHome() {
 
   // 渲染顶部 Banner 区域的函数
   const renderBanner = () => {
-    const bannerHotels = mockHotels.slice(0, 4);
+    if (loading) {
+      return (
+        <div className="home-banner">
+          <Loading />
+        </div>
+      );
+    }
+    const bannerHotels = hotels.slice(0, 4);
+    if (bannerHotels.length === 0) return null;
+
     return (
       <div className="home-banner">
         <Swiper autoplay loop style={{ '--height': '220px' }}>
@@ -279,14 +326,20 @@ export default function MobileHome() {
           <span className="section-header-title">热门推荐</span>
           <span className="section-header-sub">精选好评酒店</span>
         </div>
-    
-         {mockHotels.map((hotel) => (
-          <HotelCard 
-            key={hotel.id} 
-            data={hotel} 
-            onClick={() => navigate(`/detail/${hotel.id}`)}  //点击进入酒店详情页，使用反引号包裹路径，通过 ${hotel.id} 动态地将当前酒店的 ID（如 'h1'）拼接到 URL 中
-          />
-        ))}
+
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: 40 }}>
+            <Loading />
+          </div>
+        ) : (
+          hotels.map((hotel) => (
+            <HotelCard
+              key={hotel.id}
+              data={hotel}
+              onClick={() => navigate(`/detail/${hotel.id}`)}
+            />
+          ))
+        )}
       </div>
 
       {/* 日历组件 */}
