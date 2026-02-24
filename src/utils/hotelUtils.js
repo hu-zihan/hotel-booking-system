@@ -127,9 +127,14 @@ export async function getHotelById(hotelId) {
     const bannerUrls = hotelImage
         .filter(img => img.image_type === 0)
         .map(img => img.image_url);
-    
+
+    // 详情图
+    const detailUrls = hotelImage
+        .filter(img => img.image_type === 2)
+        .map(img => img.image_url);
+
     // 房型图片按 room_type_id 分组
-    const roomTypeImages = hotelImage
+    const roomTypeUrls = hotelImage
         .filter(img => img.room_type_id !== null)
         .reduce((acc, img) => {
             const roomTypeId = img.room_type_id.toString();
@@ -138,17 +143,109 @@ export async function getHotelById(hotelId) {
             }
             acc[roomTypeId].push(img.image_url);
             return acc;
-        }, []);
-    
+        }, {});
+
     return {
         ...hotel,
         id: hotel.id.toString(), // BigInt 转字符串
         images: {
             bannerUrls,      // Banner 图片 URL 数组
-            roomTypeImages   // 房型图片对象 { roomTypeId: [url1, url2, ...] }
+            detailUrls,      // 详情图片 URL 数组
+            roomTypeUrls   // 房型图片对象 { roomTypeId: [url1, url2, ...] }
         }
     };
 }
+
+/**
+ * 获取酒店详情（含房型信息）
+ */
+export async function getHotelByIdWithRoomTypes(hotelId) {
+    const hotel = await prisma.hotel.findUnique({
+        where: { id: hotelId },
+        include: {
+            hotel_info: true,
+        }
+    });
+
+    if (!hotel) {
+        throw new Error('酒店不存在');
+    }
+
+    // 获取所有图片
+    const hotelImage = await prisma.hotel_image.findMany({
+        where: { hotel_id: hotel.id },
+        select: {
+            id: true,
+            image_url: true,
+            image_type: true,
+            room_type_id: true,
+            sort_order: true
+        },
+        orderBy: { sort_order: 'asc' }
+    });
+
+    // 分类图片
+    const bannerUrls = hotelImage
+        .filter(img => img.image_type === 0)
+        .map(img => img.image_url);
+
+    const detailUrls = hotelImage
+        .filter(img => img.image_type === 2)
+        .map(img => img.image_url);
+
+    // 房型图片按 room_type_id 分组
+    const roomTypeUrls = hotelImage
+        .filter(img => img.room_type_id !== null)
+        .reduce((acc, img) => {
+            const roomTypeId = img.room_type_id.toString();
+            if (!acc[roomTypeId]) {
+                acc[roomTypeId] = [];
+            }
+            acc[roomTypeId].push(img.image_url);
+            return acc;
+        }, {});
+
+    // 获取房型列表（含图片）
+    const roomTypes = await prisma.hotel_room_type.findMany({
+        where: { hotel_id: hotel.id },
+        include: {
+            hotel_image: {
+                orderBy: { sort_order: 'asc' }
+            }
+        },
+        orderBy: { price: 'asc' }
+    });
+
+    const roomTypeList = roomTypes.map(rt => ({
+        id: rt.id.toString(),
+        name: rt.name,
+        bed_type: rt.bed_type,
+        capacity: rt.capacity,
+        breakfast_included: rt.breakfast_included,
+        refundable: rt.refundable,
+        price: parseFloat(rt.price),
+        stock: rt.stock,
+        status: rt.status,
+        room_space: rt.room_space ? parseFloat(rt.room_space) : null,
+        images: rt.hotel_image.map(img => ({
+            id: img.id.toString(),
+            url: img.image_url,
+            sort_order: img.sort_order
+        }))
+    }));
+
+    return {
+        ...hotel,
+        id: hotel.id.toString(),
+        images: {
+            bannerUrls,
+            detailUrls,
+            roomTypeUrls
+        },
+        roomTypes: roomTypeList
+    };
+}
+
 function geohashCandidate(lat,lon,precision=6){
     const center = ngeohash.encode(lat,lon,precision);
     const hashNeighbors = ngeohash.neighbors(center);
