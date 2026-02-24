@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { NavBar, Tag, Button, Space, Swiper, DatePicker, Stepper, Toast, Loading } from 'antd-mobile';
 import { StarFill, EnvironmentOutline, TagOutline, ClockCircleOutline, PhoneFill, CalendarOutline, UnorderedListOutline } from 'antd-mobile-icons';
 import { getHotelDetailWithGeo } from '../../api';
+import { getDefaultScore, getScoreLevel } from '../../utils/score';
 import RoomCard from '../../components/RoomCard';
 import './HotelDetail.css';
 
@@ -41,18 +42,6 @@ interface FormattedHotel {
   rooms: Room[];
 }
 
-// 根据星级计算默认评分
-const getDefaultScore = (star: number): number => {
-  const scoreMap: Record<number, number> = {
-    5: 4.8,
-    4: 4.5,
-    3: 4.0,
-    2: 3.5,
-    1: 3.0,
-  };
-  return scoreMap[star] || 4.0;
-};
-
 export default function HotelDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -62,8 +51,14 @@ export default function HotelDetail() {
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const [checkIn, setCheckIn] = useState<Date>(today);
-  const [checkOut, setCheckOut] = useState<Date>(tomorrow);
+  // 从 localStorage 读取日期，如果没有则使用默认值
+  const getStoredDate = (key: string, fallback: Date): Date => {
+    const stored = localStorage.getItem(key);
+    return stored ? new Date(stored) : fallback;
+  };
+
+  const [checkIn, setCheckIn] = useState<Date>(() => getStoredDate('checkInDate', today));
+  const [checkOut, setCheckOut] = useState<Date>(() => getStoredDate('checkOutDate', tomorrow));
   const [adults, setAdults] = useState<number>(2);
   const [checkinVisible, setCheckinVisible] = useState<boolean>(false);
   const [checkoutVisible, setCheckoutVisible] = useState<boolean>(false);

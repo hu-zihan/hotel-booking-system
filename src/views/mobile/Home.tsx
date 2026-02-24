@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Calendar, SearchBar, Tag,Popup,Swiper, Image, Toast, Loading } from 'antd-mobile';
+import { Button, Calendar, SearchBar, Tag, Popup, Swiper, Toast, Loading } from 'antd-mobile';
 import { EnvironmentOutline } from 'antd-mobile-icons';
-import { getPopularHotels, reverseGeocode, Hotel } from '../../api';
+import { getPopularHotels, reverseGeocode } from '../../api';
+import { getDefaultScore } from '../../utils/score';
 import './Home.css';
 import { useNavigate } from 'react-router-dom';
 import HotelCard from '../../components/hotelCard';
@@ -28,16 +29,28 @@ export default function MobileHome() {
   // 状态：控制日历弹出层
   const [calendarVisible, setCalendarVisible] = useState(false);
   // 状态：存储选中的日期范围
-  const [dateRange, setDateRange] = useState<Date[] | null>(null);
+  const [dateRange, setDateRange] = useState<[Date, Date] | null>(null);
   // 临时状态：存储用户正在选择的日期（点击确认后才正式保存到 dateRange）
-  const [tempDateRange, setTempDateRange] = useState<Date[] | null>(null);
+  const [tempDateRange, setTempDateRange] = useState<[Date, Date] | null>(null);
   // 状态：存储当前城市
   const [currentCity, setCurrentCity] = useState('上海');
   // 状态：定位加载中
   const [locating, setLocating] = useState(false);
+  // 用户定位的经纬度
+  const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
+  // 定位到的城市名称
+  const [locatedCity, setLocatedCity] = useState<string | null>(null);
   //  搜索与筛选
   const [keyword, setKeyword] = useState(''); // 搜索关键字
   const [selectedTags, setSelectedTags] = useState<string[]>([]); // 已选中的标签
+
+  // 价格筛选
+  const [priceRange, setPriceRange] = useState<[number, number] | null>(null);
+  const [priceVisible, setPriceVisible] = useState(false);
+
+  // 星级筛选
+  const [starFilter, setStarFilter] = useState<number | null>(null);
+  const [starVisible, setStarVisible] = useState(false);
 
   // ── 热门酒店数据 ────────────────────────────
   const [hotels, setHotels] = useState<HotelCardData[]>([]);
@@ -59,7 +72,7 @@ export default function MobileHome() {
             imageurl: h.banner_urls?.[0] || '',
             tags: [],
             address: h.address || '',
-            score: 0,
+            score: getDefaultScore(h.star || 3),
           }));
           setHotels(formatted);
 
@@ -75,9 +88,6 @@ export default function MobileHome() {
 
     fetchPopularHotels();
   }, []);
-
-  // Banner 酒店
-  const bannerHotel = hotels.length > 0 ? hotels[Math.floor(Math.random() * hotels.length)] : null;
 
   // 获取当前位置的函数
   const handleGetLocation = () => {
@@ -103,6 +113,9 @@ export default function MobileHome() {
         const { latitude, longitude } = position.coords;
         console.log('获取到的坐标：', latitude, longitude);
 
+        // 保存用户定位的经纬度
+        setUserLocation({ lat: latitude, lon: longitude });
+
         try {
           const result = await reverseGeocode(latitude, longitude);
 
@@ -110,6 +123,8 @@ export default function MobileHome() {
             // 去掉"市"字
             const cityName = result.location.city.replace('市', '');
             setCurrentCity(cityName);
+            // 保存定位到的城市名称
+            setLocatedCity(cityName);
             Toast.clear();
             Toast.show({
               icon: 'success',
@@ -174,30 +189,44 @@ export default function MobileHome() {
   };
 
   // 处理查询点击
-  const handleSearch = () => {
-    // 1. 先做“拦截”：如果没选日期，弹窗报错并中断代码执行
-    if (!dateRange) {
-        alert( '请选择入住日期' );
-        return; 
-    }
+  const handleSearch = async () => {
 
     // 2. 构建查询参数
     const params = new URLSearchParams();
-    
+
     // 放入城市
     params.append('city', currentCity);
-    
+
     // 放入日期 (转换为时间戳或字符串)
     if (dateRange) {
-        params.append('startDate', dateRange[0].getTime());
-        params.append('endDate', dateRange[1].getTime());
+        params.append('startDate', dateRange[0].getTime().toString());
+        params.append('endDate', dateRange[1].getTime().toString());
     }
 
-    // 放入关键字
-    if (keyword) params.append('keyword', keyword);
-    
+    // 放入关键字 (后端用 q 参数)
+    if (keyword) params.append('q', keyword);
+
     // 放入标签
     if (selectedTags.length > 0) params.append('tags', selectedTags.join(','));
+
+    // 放入价格筛选
+    if (priceRange) {
+        if (priceRange[0] > 0) params.append('minPrice', priceRange[0].toString());
+        if (priceRange[1] > 0) params.append('maxPrice', priceRange[1].toString());
+    }
+
+    // 放入星级筛选
+    if (starFilter) {
+        params.append('minStar', starFilter.toString());
+        params.append('maxStar', starFilter.toString());
+    }
+
+    // 放入用户定位的经纬度（只有当定位到的城市和当前选择的城市一致时才添加）
+    if (userLocation && locatedCity && locatedCity === currentCity) {
+        console.log('添加用户位置到查询参数：', userLocation);
+        params.append('latitude', userLocation.lat.toString());
+        params.append('longitude', userLocation.lon.toString());
+    }
 
     // 3. 执行跳转 -> 列表页
     console.log('跳往列表页，参数：', params.toString());
@@ -285,12 +314,47 @@ export default function MobileHome() {
 
         {/* 关键词搜索 */}
         <div className="search-row">
-          <SearchBar 
-            placeholder='搜索酒店、地点、关键词' 
-            className="search-bar" 
+          <SearchBar
+            placeholder='搜索酒店、地点、关键词'
+            className="search-bar"
             value={keyword}
             onChange={val => setKeyword(val)} // Antd Mobile SearchBar 直接返回字符串
           />
+        </div>
+
+        {/* 价格和星级筛选 */}
+        <div className="search-row" style={{ gap: '8px', flexWrap: 'wrap' }}>
+          {/* 价格筛选按钮 */}
+          <Tag
+            color={priceRange ? 'primary' : 'default'}
+            fill={priceRange ? 'solid' : 'outline'}
+            onClick={() => setPriceVisible(true)}
+            style={{ cursor: 'pointer' }}
+          >
+            {priceRange ? `¥${priceRange[0]}-${priceRange[1]}` : '价格'}
+          </Tag>
+
+          {/* 星级筛选按钮 */}
+          <Tag
+            color={starFilter ? 'primary' : 'default'}
+            fill={starFilter ? 'solid' : 'outline'}
+            onClick={() => setStarVisible(true)}
+            style={{ cursor: 'pointer' }}
+          >
+            {starFilter ? `${starFilter}星` : '星级'}
+          </Tag>
+
+          {/* 已选筛选清除按钮 */}
+          {(priceRange || starFilter) && (
+            <Tag
+              color="warning"
+              fill="outline"
+              onClick={() => { setPriceRange(null); setStarFilter(null); }}
+              style={{ cursor: 'pointer' }}
+            >
+              清除筛选
+            </Tag>
+          )}
         </div>
 
         {/*快捷标签 (使用 hotTags 并支持点击)*/}
@@ -342,6 +406,69 @@ export default function MobileHome() {
         )}
       </div>
 
+      {/* 价格筛选弹窗 */}
+      <Popup
+        visible={priceVisible}
+        onMaskClick={() => setPriceVisible(false)}
+        bodyStyle={{ padding: '16px', borderRadius: '12px 12px 0 0' }}
+      >
+        <div style={{ marginBottom: 16, fontWeight: 'bold' }}>选择价格范围</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {[
+            { label: '不限', value: null },
+            { label: '300以下', value: [0, 300] as [number, number] },
+            { label: '300-600', value: [300, 600] as [number, number] },
+            { label: '600-1000', value: [600, 1000] as [number, number] },
+            { label: '1000-2000', value: [1000, 2000] as [number, number] },
+            { label: '2000以上', value: [2000, 0] as [number, number] },
+          ].map(item => (
+            <Tag
+              key={item.label}
+              color={JSON.stringify(priceRange) === JSON.stringify(item.value) ? 'primary' : 'default'}
+              fill={JSON.stringify(priceRange) === JSON.stringify(item.value) ? 'solid' : 'outline'}
+              onClick={() => {
+                setPriceRange(item.value);
+                setPriceVisible(false);
+              }}
+              style={{ padding: '8px 16px', cursor: 'pointer' }}
+            >
+              {item.label}
+            </Tag>
+          ))}
+        </div>
+      </Popup>
+
+      {/* 星级筛选弹窗 */}
+      <Popup
+        visible={starVisible}
+        onMaskClick={() => setStarVisible(false)}
+        bodyStyle={{ padding: '16px', borderRadius: '12px 12px 0 0' }}
+      >
+        <div style={{ marginBottom: 16, fontWeight: 'bold' }}>选择酒店星级</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {[
+            { label: '不限', value: null },
+            { label: '五星级', value: 5 },
+            { label: '四星级', value: 4 },
+            { label: '三星级', value: 3 },
+            { label: '二星级', value: 2 },
+          ].map(item => (
+            <Tag
+              key={item.label}
+              color={starFilter === item.value ? 'primary' : 'default'}
+              fill={starFilter === item.value ? 'solid' : 'outline'}
+              onClick={() => {
+                setStarFilter(item.value);
+                setStarVisible(false);
+              }}
+              style={{ padding: '8px 16px', cursor: 'pointer' }}
+            >
+              {item.label}
+            </Tag>
+          ))}
+        </div>
+      </Popup>
+
       {/* 日历组件 */}
         <Popup
                 visible={calendarVisible} // 控制弹窗显示
@@ -371,6 +498,9 @@ export default function MobileHome() {
                       onClick={() => {
                         if (tempDateRange) {
                           setDateRange(tempDateRange); // 将临时日期保存到正式状态
+                          // 保存到 localStorage
+                          localStorage.setItem('checkInDate', tempDateRange[0].toISOString());
+                          localStorage.setItem('checkOutDate', tempDateRange[1].toISOString());
                           setCalendarVisible(false); // 关闭弹窗
                           setTempDateRange(null); // 清空临时状态
                         }

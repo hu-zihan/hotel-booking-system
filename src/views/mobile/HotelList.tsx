@@ -6,6 +6,7 @@ import {
 } from 'antd-mobile';
 import { EnvironmentOutline, StarFill, SearchOutline } from 'antd-mobile-icons';
 import { searchHotels, Hotel, SearchParams } from '../../api';
+import { getDefaultScore, getScoreLevel, getScoreBadgeClass } from '../../utils/score';
 import './HotelList.css';
 
 // 酒店卡片数据类型
@@ -31,17 +32,15 @@ const CITIES = ['上海', '南京', '北京', '杭州', '成都', '广州'];
 const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 const fmt = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`;
 const QUICK_TAGS = ['免费停车场', '含早餐', '近地铁', '亲子酒店', '健身房', 'SPA', '湖景', '江景房'];
-const scoreLevel = (s: number) => s >= 4.8 ? '超棒' : s >= 4.5 ? '好评' : s >= 4.0 ? '不错' : '尚可';
-const scoreBadgeClass = (s: number) => s >= 4.8 ? 'score-orange' : s >= 4.5 ? 'score-blue' : s >= 4.0 ? 'score-green' : 'score-gray';
 
-// 城市名到 adcode 的映射
-const CITY_ADCODE_MAP: Record<string, string> = {
-  '上海': '310100',
-  '南京': '320100',
-  '北京': '110000',
-  '杭州': '330100',
-  '成都': '510100',
-  '广州': '440100',
+// 根据星级获取评分和样式
+const getHotelScoreInfo = (star: number) => {
+  const score = getDefaultScore(star);
+  return {
+    score,
+    level: getScoreLevel(score),
+    badgeClass: getScoreBadgeClass(score),
+  };
 };
 
 export default function ListPage() {
@@ -51,18 +50,36 @@ export default function ListPage() {
 
   // ── 从 URL 取初始参数 ────────────────────────
   const initCity    = searchParams.get('city')    || '上海';
-  const initKeyword = searchParams.get('keyword') || '';
+  // 优先使用 q 参数，其次使用 keyword（兼容两种参数名）
+  const initKeyword = searchParams.get('q') || searchParams.get('keyword') || '';
   const tagsParam   = searchParams.get('tags')    || '';
   const initTags    = tagsParam ? tagsParam.split(',') : [];
+
+  // 从 URL 读取筛选参数
+  const initMinPrice  = searchParams.get('minPrice');
+  const initMaxPrice  = searchParams.get('maxPrice');
+  const initMinStar   = searchParams.get('minStar');
+  const initMaxStar   = searchParams.get('maxStar');
+  const initLatitude  = searchParams.get('latitude');
+  const initLongitude = searchParams.get('longitude');
+
+  // 定位城市 - 从 URL 中获取（如果有的话）
+  const [locatedCity] = useState<string | null>(initLatitude && initLongitude ? initCity : null);
 
   // ── 顶部条件状态 ─────────────────────────────
   const today    = new Date();
   const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
 
+  // 从 localStorage 读取日期，如果没有则使用默认值
+  const getStoredDate = (key: string, fallback: Date): Date => {
+    const stored = localStorage.getItem(key);
+    return stored ? new Date(stored) : fallback;
+  };
+
   const [city, setCity]               = useState<string>(initCity);
   const [keyword, setKeyword]         = useState<string>(initKeyword);
-  const [checkIn, setCheckIn]         = useState<Date>(today);
-  const [checkOut, setCheckOut]       = useState<Date>(tomorrow);
+  const [checkIn, setCheckIn]         = useState<Date>(() => getStoredDate('checkInDate', today));
+  const [checkOut, setCheckOut]       = useState<Date>(() => getStoredDate('checkOutDate', tomorrow));
   const [adults, setAdults]           = useState<number>(2);
 
   // ── 数据状态 ────────────────────────────────
@@ -78,8 +95,21 @@ export default function ListPage() {
   const [searchVisible,   setSearchVisible]   = useState<boolean>(false);
 
   // ── 筛选状态 ─────────────────────────────────
-  const [starFilter,      setStarFilter]      = useState<string>('all');
-  const [priceFilter,     setPriceFilter]     = useState<string>('all');
+  // 从 URL 参数初始化筛选状态
+  const getInitialPriceFilter = () => {
+    if (initMinPrice && initMaxPrice) return `${initMinPrice}-${initMaxPrice}`;
+    if (initMinPrice === '0' && initMaxPrice) return `0-${initMaxPrice}`;
+    if (initMinPrice && !initMaxPrice) return '1000+';
+    return 'all';
+  };
+
+  const getInitialStarFilter = () => {
+    if (initMinStar && initMaxStar && initMinStar === initMaxStar) return initMinStar;
+    return 'all';
+  };
+
+  const [starFilter,      setStarFilter]      = useState<string>(getInitialStarFilter());
+  const [priceFilter,     setPriceFilter]     = useState<string>(getInitialPriceFilter());
   const [sortOrder,       setSortOrder]       = useState<string>('recommend');
   const [breakfastFilter, setBreakfastFilter] = useState<string>('all');
   const [quickTagFilter,  setQuickTagFilter]  = useState<string[]>([]);
@@ -95,12 +125,18 @@ export default function ListPage() {
     setLoading(true);
     try {
       // 构建筛选参数
-      const params = {
+      const params: Record<string, any> = {
         q: keyword,
         page: pageNum,
         pageSize: PAGE_SIZE,
-        adcode: CITY_ADCODE_MAP[city],
+        city: city,
       };
+
+      // 如果有定位信息且当前城市等于定位城市，则添加经纬度
+      if (locatedCity && locatedCity === city && initLatitude && initLongitude) {
+        params.latitude = parseFloat(initLatitude);
+        params.longitude = parseFloat(initLongitude);
+      }
 
       // 价格筛选
       if (priceFilter === '0-300') {
@@ -340,12 +376,12 @@ export default function ListPage() {
 
       {/* 结果计数 */}
       <div className="list-result-count">
-        共 <strong>{filteredHotels.length}</strong> 家 · {city} · {fmt(checkIn)}—{fmt(checkOut)} · {nights}晚 · {adults}人
+        共 <strong>{hotels.length}</strong> 家 · {city} · {fmt(checkIn)}—{fmt(checkOut)} · {nights}晚 · {adults}人
       </div>
 
       {/* ③ 酒店列表 */}
       <div className="list-cards">
-        {filteredHotels.length === 0 ? (
+        {hotels.length === 0 ? (
           <div style={{ marginTop: 60 }}>
             <ErrorBlock status="empty" title="暂无结果" description="换个条件试试吧" />
           </div>
@@ -362,7 +398,7 @@ export default function ListPage() {
             <InfiniteScroll loadMore={loadMore} hasMore={hasMore} threshold={50}>
               {hasMore
                 ? <div className="list-loading-hint">加载中…</div>
-                : <div className="list-no-more">— 已显示全部 {filteredHotels.length} 家酒店 —</div>
+                : <div className="list-no-more">— 已显示全部 {hotels.length} 家酒店 —</div>
               }
             </InfiniteScroll>
           </>
@@ -447,6 +483,8 @@ function ListHotelCard({ hotel, nights, onClick }) {
   const hasBreakfast = rooms?.some(r => r.breakfast);
   const minPrice = rooms ? Math.min(...rooms.map(r => r.price)) : price;
   const totalPrice = minPrice * nights;
+  // 根据星级获取评分信息
+  const { score: displayScore, level, badgeClass } = getHotelScoreInfo(star);
   // 模拟评论数（真实项目从接口获取）
   const renderStars = (n) =>
     Array.from({ length: 5 }, (_, i) => (
@@ -469,9 +507,9 @@ function ListHotelCard({ hotel, nights, onClick }) {
           {/* 第一行：名称 + 评分徽章 */}
           <div className="lc-name-row">
             <span className="lc-name">{name.cn}</span>
-            <div className={`lc-score-badge ${scoreBadgeClass(score)}`}>
-              <span className="lc-score-num">{score}</span>
-              <span className="lc-score-label">{scoreLevel(score)}</span>
+            <div className={`lc-score-badge ${badgeClass}`}>
+              <span className="lc-score-num">{displayScore}</span>
+              <span className="lc-score-label">{level}</span>
             </div>
           </div>
 
