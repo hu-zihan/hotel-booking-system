@@ -2,12 +2,20 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { NavBar, Tag, Button, Space, Swiper, DatePicker, Stepper, Toast, Loading } from 'antd-mobile';
-import { StarFill, EnvironmentOutline, TagOutline, ClockCircleOutline, PhoneFill, CalendarOutline } from 'antd-mobile-icons';
+import { StarFill, EnvironmentOutline, TagOutline, ClockCircleOutline, PhoneFill, CalendarOutline, UnorderedListOutline } from 'antd-mobile-icons';
 import { getHotelDetailWithGeo } from '../../api';
 import RoomCard from '../../components/RoomCard';
 import './HotelDetail.css';
 
 // 格式化后的酒店数据类型
+interface Station {
+  name: string;
+  en_name: string;
+  distance: number;
+  line_name: string[] | string;
+  line_color: string[] | string;
+}
+
 interface FormattedHotel {
   id: string;
   name: { cn: string; en: string };
@@ -62,6 +70,7 @@ export default function HotelDetail() {
 
   // 数据状态
   const [hotel, setHotel] = useState<FormattedHotel | null>(null);
+  const [stations, setStations] = useState<Station[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
@@ -106,6 +115,10 @@ export default function HotelDetail() {
             })),
           };
           setHotel(formattedHotel);
+          // 处理 stations 数据
+          if (result.stations && result.stations.length > 0) {
+            setStations(result.stations);
+          }
         } else {
           Toast.show({ content: '获取酒店详情失败', icon: 'fail' });
         }
@@ -246,6 +259,34 @@ export default function HotelDetail() {
             {hotel.facilities.slice(0, 4).map(facility => (
               <Tag key={facility} color="default" style={{ marginRight: 4, marginBottom: 4 }}>{facility}</Tag>
             ))}
+          </div>
+        )}
+        {/* 显示地铁站信息 */}
+        {stations.length > 0 && (
+          <div className="detail-tags">
+            {stations.slice(0, 2).map((station, idx) => {
+              // 处理 line_name 和 line_color，可能是数组或字符串
+              const lineNames = Array.isArray(station.line_name) ? station.line_name : [station.line_name];
+              const lineColors = Array.isArray(station.line_color) ? station.line_color : [station.line_color];
+              const firstLineName = lineNames[0] || '';
+              const firstLineColor = lineColors[0] || '#1677ff';
+
+              return (
+                <Tag
+                  key={idx}
+                  style={{
+                    marginRight: 4,
+                    marginBottom: 4,
+                    backgroundColor: `#${firstLineColor}`,
+                    color: '#fff',
+                    border: 'none'
+                  }}
+                >
+                  <UnorderedListOutline style={{ fontSize: 10, marginRight: 3 }} />
+                  {firstLineName} · 距{station.name}{Math.round(station.distance)}米
+                </Tag>
+              );
+            })}
           </div>
         )}
       </div>
