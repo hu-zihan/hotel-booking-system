@@ -82,8 +82,14 @@ router.get('/hotels', async (req, res) => {
             filter.push({ range: { star: starRange } });
         }
 
-        // 地理位置筛选和排序
+        // 排序逻辑
         let sort = [];
+
+        if (q && q.trim()) {
+            // 有关键词时，先按相关性排序
+            sort.push({ _score: 'desc' });
+        }
+
         if (latitude && longitude) {
             const lat = parseFloat(latitude);
             const lon = parseFloat(longitude);
@@ -97,7 +103,7 @@ router.get('/hotels', async (req, res) => {
                 }
             });
 
-            // 距离排序（距离越近，权重越高）
+            // 添加距离排序
             sort.push({
                 _geo_distance: {
                     location: { lat, lon },
@@ -108,15 +114,8 @@ router.get('/hotels', async (req, res) => {
             });
         }
 
-        // 添加评分排序和价格排序
-        if (!q || !q.trim()) {
-            // 没有关键词时，按价格排序
-            sort.push({ min_price: 'asc' });
-        } else {
-            // 有关键词时，先按相关性，再按价格
-            sort.push({ _score: 'desc' });
-            sort.push({ min_price: 'asc' });
-        }
+        // 最后按价格排序
+        sort.push({ min_price: 'asc' });
 
         // 构建完整查询
         const searchQuery = {
@@ -124,6 +123,10 @@ router.get('/hotels', async (req, res) => {
             body: {
                 from,
                 size: pageSizeNum,
+                _source: [
+                    'id', 'name', 'address', 'location', 'star', 'min_price',
+                    'adcode', 'geohash', 'banner_urls', 'highlight'
+                ],
                 query: {
                     bool: {
                         must: must.length > 0 ? must : [{ match_all: {} }],
