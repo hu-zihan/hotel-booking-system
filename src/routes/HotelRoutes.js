@@ -1,6 +1,6 @@
 import express from 'express';
 import { prisma } from '../config/prisma.js';
-import { addHotel,getHotelById,searchHotelStationById} from '../utils/hotelUtils.js';
+import { addHotel, getHotelById, getHotelByIdWithRoomTypes, searchHotelStationById} from '../utils/hotelUtils.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
 const router = express.Router();
 
@@ -35,13 +35,39 @@ router.get("/getHotelInfo" ,async (req, res) => {
     try {
         const {hotelId} = req.query;
         if (!hotelId) {
+            return res.status(400).json({
+                error: "Hotel ID is required",
+                ok: false
+            });
+        }
+
+        const hotelRaw = await getHotelByIdWithRoomTypes(BigInt(hotelId));
+
+        // 过滤 hotel 对象中不需要的字段
+        const {adcode, geohash, audit_status, status, created_at, updated_at, hotel_info,latitude,longitude, ...hotel} = hotelRaw;
+
+        // 过滤 hotel_info 对象中不需要的字段
+        if (hotel_info) {
+            const {hotel_id, created_at: info_created, updated_at: info_updated, ...cleanInfo} = hotel_info;
+            hotel.hotel_info = cleanInfo;
+        }
+        return res.json({hotel: hotel, ok: true});
+    } catch (error) {
+        console.error('获取酒店信息失败:', error);
+        return res.status(500).json({ error: error.message, ok: false });
+    }
+});
+router.get("/getHotelInfoWithGeo", async (req, res) => {
+     try {
+        const {hotelId} = req.query;
+        if (!hotelId) {
             return res.status(400).json({ 
                 error: "Hotel ID is required",
                 ok: false
             });
         }
         
-        const hotelRaw = await getHotelById(hotelId);
+        const hotelRaw = await getHotelByIdWithRoomTypes(hotelId);
         const stationsRaw = await searchHotelStationById(BigInt(hotelId));
         
         // 过滤 hotel 对象中不需要的字段

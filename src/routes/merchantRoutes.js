@@ -2,13 +2,12 @@ import express from 'express';
 import multer from 'multer';
 import { prisma } from '../config/prisma.js';
 import { authenticateToken, authorizeRoles } from '../middleware/authMiddleware.js';
-import { addHotel, getHotelById, uploadHotelBanner, updateHotel } from '../utils/hotelUtils.js';
-import { deleteByUrl } from '../utils/ossUtils.js';
-
+import { addHotel, getHotelById, getHotelByIdWithRoomTypes, uploadHotelBanner, updateHotel } from '../utils/hotelUtils.js';
+import { deleteByUrl,upload } from '../utils/ossUtils.js';
 const router = express.Router();
 
 // 配置 multer（内存存储）
-const upload = multer({
+const uploadmemory = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 10 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
@@ -83,8 +82,8 @@ router.get("/hotels/:hotelId", authenticateToken, authorizeRoles("merchant"), as
     try {
         const { hotelId } = req.params;
         const merchantId = BigInt(req.user.id);
-        
-        const hotel = await getHotelById(BigInt(hotelId));
+
+        const hotel = await getHotelByIdWithRoomTypes(BigInt(hotelId));
 
         if (BigInt(hotel.merchant_id) !== merchantId) {
             return res.status(403).json({ error: "Permission denied", ok: false });
@@ -99,7 +98,7 @@ router.get("/hotels/:hotelId", authenticateToken, authorizeRoles("merchant"), as
 /**
  * 上传酒店 Banner 图片 - 复用 hotelUtils.uploadHotelBanner
  */
-router.post("/hotels/:hotelId/image", authenticateToken, authorizeRoles("merchant"), upload.single('banner'), async (req, res) => {
+router.post("/hotels/:hotelId/image", authenticateToken, authorizeRoles("merchant"), uploadmemory.single('banner'), async (req, res) => {
     try {
         const { hotelId} = req.params;
         const merchantId = BigInt(req.user.id);
@@ -405,6 +404,7 @@ router.get("/hotels/:hotelId/room-types", authenticateToken, authorizeRoles("mer
                 price: parseFloat(rt.price),
                 stock: rt.stock,
                 status: rt.status,
+                room_space: rt.room_space ? parseFloat(rt.room_space) : null,
                 images: rt.hotel_image.map(img => ({
                     id: img.id.toString(),
                     url: img.image_url,
@@ -419,13 +419,14 @@ router.get("/hotels/:hotelId/room-types", authenticateToken, authorizeRoles("mer
 });
 
 /**
- * 商户新增房型
+ * 商户新增房型（支持同时上传图片）
  */
-router.post("/hotels/:hotelId/room-types", authenticateToken, authorizeRoles("merchant"), async (req, res) => {
+router.post("/hotels/:hotelId/room-types", authenticateToken, authorizeRoles("merchant"), uploadmemory.array('images', 10), async (req, res) => {
     try {
         const { hotelId } = req.params;
         const merchantId = Number(req.user.id);
-        const { name, bed_type, capacity, breakfast_included, refundable, price, stock, status } = req.body;
+        const { name, bed_type, capacity, breakfast_included, refundable, price, stock, status, room_space } = req.body;
+        const files = req.files;
 
         const hotel = await prisma.hotel.findUnique({
             where: { id: Number(hotelId) }
@@ -443,15 +444,43 @@ router.post("/hotels/:hotelId/room-types", authenticateToken, authorizeRoles("me
             data: {
                 hotel_id: Number(hotelId),
                 name,
-                bed_type: bed_type || 0,
-                capacity: capacity || 2,
-                breakfast_included: breakfast_included || 0,
-                refundable: refundable || 1,
-                price: price,
-                stock: stock || 0,
-                status: status || 1
+                bed_type: Number(bed_type) || 0,
+                capacity: Number(capacity) || 2,
+                breakfast_included: breakfast_included ? 1 : 0,
+                refundable: Number(refundable) || 1,
+                price: Number(price),
+                stock: Number(stock) || 0,
+                status: Number(status) || 1,
+                room_space: room_space ? Number(room_space) : null
             }
         });
+
+        // 如果有上传图片，保存到数据库
+        const uploadedImages = [];
+        if (files && files.length > 0) {
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const ext = file.originalname.split('.').pop();
+                const ossPath = `hotel/${hotelId}/room-type/${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${ext}`;
+                const imageUrl = await upload(file.buffer, ossPath);
+
+                const image = await prisma.hotel_image.create({
+                    data: {
+                        hotel_id: Number(hotelId),
+                        room_type_id: roomType.id,
+                        image_url: imageUrl.url,
+                        image_type: 1, // 房型图片
+                        sort_order: i
+                    }
+                });
+
+                uploadedImages.push({
+                    id: image.id.toString(),
+                    url: image.image_url,
+                    sort_order: image.sort_order
+                });
+            }
+        }
 
         // 如果房型价格低于酒店当前最低价，更新酒店的 min_price
         const currentMinPrice = parseFloat(hotel.min_price);
@@ -467,7 +496,8 @@ router.post("/hotels/:hotelId/room-types", authenticateToken, authorizeRoles("me
             data: {
                 id: roomType.id.toString(),
                 name: roomType.name,
-                price: parseFloat(roomType.price)
+                price: parseFloat(roomType.price),
+                images: uploadedImages
             },
             message: "Room type created successfully"
         });
@@ -484,7 +514,7 @@ router.put("/room-types/:roomTypeId", authenticateToken, authorizeRoles("merchan
     try {
         const { roomTypeId } = req.params;
         const merchantId = Number(req.user.id);
-        const { name, bed_type, capacity, breakfast_included, refundable, price, stock, status } = req.body;
+        const { name, bed_type, capacity, breakfast_included, refundable, price, stock, status, room_space } = req.body;
 
         const roomType = await prisma.hotel_room_type.findUnique({
             where: { id: BigInt(roomTypeId) },
@@ -504,11 +534,12 @@ router.put("/room-types/:roomTypeId", authenticateToken, authorizeRoles("merchan
                 ...(name && { name }),
                 ...(bed_type !== undefined && { bed_type }),
                 ...(capacity !== undefined && { capacity }),
-                ...(breakfast_included !== undefined && { breakfast_included }),
-                ...(refundable !== undefined && { refundable }),
+                ...(breakfast_included !== undefined && { breakfast_included:Number(breakfast_included) }),
+                ...(refundable !== undefined && { refundable:Number(refundable) }),
                 ...(price !== undefined && { price: newPrice }),
-                ...(stock !== undefined && { stock }),
-                ...(status !== undefined && { status }),
+                ...(stock !== undefined && { stock: Number(stock) }),
+                ...(status !== undefined && { status:Number(status) }),
+                ...(room_space !== undefined && { room_space: room_space ? Number(room_space) : null }),
                 updated_at: new Date()
             }
         });
@@ -621,7 +652,7 @@ router.delete("/room-types/:roomTypeId", authenticateToken, authorizeRoles("merc
 /**
  * 商户上传房型图片
  */
-router.post("/room-types/:roomTypeId/images", authenticateToken, authorizeRoles("merchant"), upload.single('image'), async (req, res) => {
+router.post("/room-types/:roomTypeId/images", authenticateToken, authorizeRoles("merchant"), uploadmemory.single('image'), async (req, res) => {
     try {
         const { roomTypeId } = req.params;
         const merchantId = Number(req.user.id);
@@ -639,10 +670,10 @@ router.post("/room-types/:roomTypeId/images", authenticateToken, authorizeRoles(
             return res.status(400).json({ error: "No file uploaded", ok: false });
         }
 
-        const { uploadToOss } = await import('../utils/ossUtils.js');
+        const { upload } = await import('../utils/ossUtils.js');
         const ext = req.file.originalname.split('.').pop();
         const ossPath = `hotel/${roomType.hotel_id}/room-type/${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${ext}`;
-        const imageUrl = await uploadToOss(req.file.buffer, ossPath);
+        const imageUrl = await upload(req.file.buffer, ossPath);
 
         const sortOrder = parseInt(req.body.sort_order) || 0;
 
@@ -650,8 +681,8 @@ router.post("/room-types/:roomTypeId/images", authenticateToken, authorizeRoles(
             data: {
                 hotel_id: roomType.hotel_id,
                 room_type_id: BigInt(roomTypeId),
-                image_url: imageUrl,
-                image_type: 2, // 房型图片类型
+                image_url: imageUrl.url,
+                image_type: 1, // 房型图片类型 (0=Banner, 1=房型, 2=详情)
                 sort_order: sortOrder
             }
         });
