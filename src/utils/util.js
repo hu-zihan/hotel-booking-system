@@ -79,16 +79,16 @@ export async function getLocation(loc){
         codeList.push(address.code);
         return codeList;
     }
-    
-    console.log('本地解析未到区级，调用高德API...');
-    const amapResult = await getLocationFromAmap(loc);
-    if(amapResult && amapResult.geocodes && amapResult.geocodes.length > 0){
-        for(const item of amapResult.geocodes){
-            if(item.adcode){
-                codeList.push(item.adcode);
-            }
-        }
-    }
+    console.log("解析的loc地址信息:", loc);
+    console.log('解析的地址信息:', address);
+    // const amapResult = await getLocationFromAmap(loc);
+    // if(amapResult && amapResult.geocodes && amapResult.geocodes.length > 0){
+    //     for(const item of amapResult.geocodes){
+    //         if(item.adcode){
+    //             codeList.push(item.adcode);
+    //         }
+    //     }
+    // }
     return codeList;
 }   
 export function mergeSameStation(stations) {

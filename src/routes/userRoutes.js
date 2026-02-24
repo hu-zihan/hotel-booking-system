@@ -37,6 +37,9 @@ router.post("/register",async (req, res) => {
     if (!username || !password) {
         return res.status(400).json({ error: "Username and password are required", ok: false });
     }
+    if(role == 2 || role == 3){
+        return res.status(400).json({ error: "管理用户暂不开放注册,请用测试账号", ok: false });
+    }
     const existingUser = await prisma.users.findUnique({
         where: { username }
     });

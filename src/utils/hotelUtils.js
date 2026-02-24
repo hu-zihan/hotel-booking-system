@@ -257,7 +257,7 @@ export async function searchHotelStationById(hotel_id) {
     })
     
     if (!hotel || !hotel.latitude || !hotel.longitude) {
-        throw new Error('酒店坐标信息不完整,缺乏地址解析功能');
+        return []
     }
     
     const candidates = geohashCandidate(hotel.latitude, hotel.longitude, 5);

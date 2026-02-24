@@ -4,6 +4,7 @@ import { prisma } from '../config/prisma.js';
 import { authenticateToken, authorizeRoles } from '../middleware/authMiddleware.js';
 import { addHotel, getHotelById, getHotelByIdWithRoomTypes, uploadHotelBanner, updateHotel } from '../utils/hotelUtils.js';
 import { deleteByUrl,upload } from '../utils/ossUtils.js';
+import { updateHotelInES } from '../utils/esHotelSync.js';
 const router = express.Router();
 
 // 配置 multer（内存存储）
@@ -123,6 +124,13 @@ router.post("/hotels/:hotelId/image", authenticateToken, authorizeRoles("merchan
             image_type
         );
 
+        // 同步到 Elasticsearch
+        try {
+            await updateHotelInES(Number(hotelId));
+        } catch (esError) {
+            console.error('ES同步失败:', esError);
+        }
+
         return res.status(201).json({
             data: result.imageRecord,
             ok: true
@@ -154,6 +162,13 @@ router.put("/hotels/:hotelId", authenticateToken, authorizeRoles("merchant"), as
         }
 
         const result = await updateHotel(BigInt(hotelId), req.body);
+
+        // 同步到 Elasticsearch
+        try {
+            await updateHotelInES(Number(hotelId));
+        } catch (esError) {
+            console.error('ES同步失败:', esError);
+        }
 
         return res.json({
             message: result.message,
@@ -359,6 +374,13 @@ router.delete("/hotels/:hotelId/images/:imageId", authenticateToken, authorizeRo
             await deleteByUrl(image_url);
         }
 
+        // 同步到 Elasticsearch
+        try {
+            await updateHotelInES(Number(hotelId));
+        } catch (esError) {
+            console.error('ES同步失败:', esError);
+        }
+
         return res.json({ message: "Image deleted successfully", ok: true });
     } catch (error) {
         console.error("Error deleting hotel image:", error);
@@ -491,6 +513,13 @@ router.post("/hotels/:hotelId/room-types", authenticateToken, authorizeRoles("me
             });
         }
 
+        // 同步到 Elasticsearch
+        try {
+            await updateHotelInES(Number(hotelId));
+        } catch (esError) {
+            console.error('ES同步失败:', esError);
+        }
+
         return res.status(201).json({
             ok: true,
             data: {
@@ -567,6 +596,13 @@ router.put("/room-types/:roomTypeId", authenticateToken, authorizeRoles("merchan
             }
         }
 
+        // 同步到 Elasticsearch
+        try {
+            await updateHotelInES(roomType.hotel_id);
+        } catch (esError) {
+            console.error('ES同步失败:', esError);
+        }
+
         return res.json({
             ok: true,
             data: {
@@ -639,6 +675,13 @@ router.delete("/room-types/:roomTypeId", authenticateToken, authorizeRoles("merc
             });
         }
 
+        // 同步到 Elasticsearch
+        try {
+            await updateHotelInES(hotelId);
+        } catch (esError) {
+            console.error('ES同步失败:', esError);
+        }
+
         return res.json({
             ok: true,
             message: "Room type deleted successfully"
@@ -686,6 +729,13 @@ router.post("/room-types/:roomTypeId/images", authenticateToken, authorizeRoles(
                 sort_order: sortOrder
             }
         });
+
+        // 同步到 Elasticsearch
+        try {
+            await updateHotelInES(roomType.hotel_id);
+        } catch (esError) {
+            console.error('ES同步失败:', esError);
+        }
 
         return res.status(201).json({
             ok: true,
@@ -735,6 +785,13 @@ router.delete("/room-types/:roomTypeId/images/:imageId", authenticateToken, auth
         await prisma.hotel_image.delete({
             where: { id: BigInt(imageId) }
         });
+
+        // 同步到 Elasticsearch
+        try {
+            await updateHotelInES(roomType.hotel_id);
+        } catch (esError) {
+            console.error('ES同步失败:', esError);
+        }
 
         return res.json({ ok: true, message: "Image deleted successfully" });
     } catch (error) {

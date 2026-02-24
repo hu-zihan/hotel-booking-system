@@ -1,5 +1,22 @@
 import { esClient, createIndexIfNotExists, bulkIndex } from '../config/elasticsearchConfig.js';
 import { prisma } from '../config/prisma.js';
+import { ParseAddress } from 'address-parse';
+
+/**
+ * 解析地址获取城市名称
+ */
+function parseCityFromAddress(address) {
+    if (!address) return null;
+    try {
+        const result = new ParseAddress(address);
+        if (result && result.length > 0) {
+            return result[0].city || null;
+        }
+    } catch (e) {
+        console.error('解析地址失败:', e);
+    }
+    return null;
+}
 
 /**
  * 酒店索引映射配置
@@ -7,17 +24,18 @@ import { prisma } from '../config/prisma.js';
 const hotelMappings = {
     properties: {
         id: { type: 'keyword' },
-        name: { 
+        name: {
             type: 'text',
             analyzer: 'standard',
             fields: {
                 keyword: { type: 'keyword' }
             }
         },
-        address: { 
+        address: {
             type: 'text',
             analyzer: 'standard'
         },
+        city: { type: 'keyword' },  // 城市名称
         location: { type: 'geo_point' },  // 地理位置
         star: { type: 'integer' },
         min_price: { type: 'float' },
@@ -55,8 +73,9 @@ export async function initHotelIndex() {
  */
 export async function syncHotelToES(hotelId) {
     try {
+        const hotelIdBigInt = BigInt(hotelId);
         const hotel = await prisma.hotel.findUnique({
-            where: { id: BigInt(hotelId) },
+            where: { id: hotelIdBigInt },
             include: { hotel_info: true }
         });
 
@@ -67,7 +86,7 @@ export async function syncHotelToES(hotelId) {
         // 获取酒店的 Banner 图片
         const bannerImages = await prisma.hotel_image.findMany({
             where: {
-                hotel_id: BigInt(hotelId),
+                hotel_id: hotelIdBigInt,
                 image_type: 0  // Banner 类型
             },
             orderBy: { sort_order: 'asc' },
@@ -80,6 +99,7 @@ export async function syncHotelToES(hotelId) {
             id: hotel.id.toString(),
             name: hotel.name,
             address: hotel.address,
+            city: parseCityFromAddress(hotel.address),
             location: hotel.latitude && hotel.longitude ? {
                 lat: parseFloat(hotel.latitude),
                 lon: parseFloat(hotel.longitude)
@@ -94,7 +114,7 @@ export async function syncHotelToES(hotelId) {
             desc: hotel.hotel_info?.desc,
             phone: hotel.hotel_info?.phone,
             name_en: hotel.hotel_info?.name_en,
-            banner_urls: bannerUrls,  // 添加 Banner URLs
+            banner_urls: bannerUrls,
             created_at: hotel.created_at,
             updated_at: hotel.updated_at
         };
@@ -143,9 +163,10 @@ export async function syncAllHotelsToES(options = {}) {
         }
 
         // 获取所有酒店的 Banner 图片
+        const hotelIds = hotels.map(h => h.id);
         const allBanners = await prisma.hotel_image.findMany({
             where: {
-                hotel_id: { in: hotels.map(h => h.id) },
+                hotel_id: { in: hotelIds },
                 image_type: 0  // Banner 类型
             },
             orderBy: { sort_order: 'asc' },
@@ -170,6 +191,7 @@ export async function syncAllHotelsToES(options = {}) {
             id: hotel.id.toString(),
             name: hotel.name,
             address: hotel.address,
+            city: parseCityFromAddress(hotel.address),
             location: hotel.latitude && hotel.longitude ? {
                 lat: parseFloat(hotel.latitude),
                 lon: parseFloat(hotel.longitude)
@@ -184,7 +206,7 @@ export async function syncAllHotelsToES(options = {}) {
             desc: hotel.hotel_info?.desc,
             phone: hotel.hotel_info?.phone,
             name_en: hotel.hotel_info?.name_en,
-            banner_urls: bannersByHotel[hotel.id.toString()] || [],  // 添加 Banner URLs
+            banner_urls: bannersByHotel[hotel.id.toString()] || [],
             created_at: hotel.created_at,
             updated_at: hotel.updated_at
         }));
