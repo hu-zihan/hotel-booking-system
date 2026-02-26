@@ -16,7 +16,7 @@ export default function MobileUserLogin() {
   return (
     <div className="login-wrapper">
       <div className="login-header">
-        <img src="https://pic.c-ctrip.com/common/c_logo2022.png" alt="Ctrip Logo" />
+        <img src="https://pic.c-ctrip.com/common/c_logo2022.png" alt="易宿 Logo" />
         <p>易宿在手，说走就走</p>
       </div>
 

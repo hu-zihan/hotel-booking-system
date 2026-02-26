@@ -1,3 +1,9 @@
+/**
+ * @file Home.jsx
+ * @description 移动端酒店首页组件
+ * 功能包括：Banner 轮播展示、城市 GPS 定位、日期范围选择、
+ * 关键词搜索、标签筛选、热门酒店推荐列表。
+ */
 import React, { useState } from 'react';
 import { Button, Calendar, SearchBar, Tag,Popup,Swiper, Image, Toast } from 'antd-mobile';
 import { EnvironmentOutline } from 'antd-mobile-icons';
@@ -6,30 +12,52 @@ import './Home.css';
 import { useNavigate } from 'react-router-dom';
 import HotelCard from '../../components/hotelCard';
 
-// --- 新增逻辑 1: 提取热门标签 (放在组件外，只计算一次) ---
-// flatMap 把所有酒店的 tags 数组铺平，Set 去重，slice 取前 5 个
+// --- 模块级常量（组件外定义，仅计算一次，不随重渲染重复执行）---
+
+// 聚合所有酒店的 tags：flatMap 展平 → Set 去重 → 取前 5 个作为快捷筛选标签
 const hotTags = [...new Set(mockHotels.flatMap(h => h.tags || []))].slice(0, 5);
+
+// 中文星期映射，索引与 Date.getDay() 对应（0 = 周日）
 const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+
+/**
+ * 将 Date 对象格式化为 "M月D日" 字符串
+ * @param {Date} d - 日期对象
+ * @returns {string} 例如 "2月26日"
+ */
 const fmt = (d) => `${d.getMonth() + 1}月${d.getDate()}日`;
+
+/**
+ * 计算日期范围的入住晚数，最少返回 1 晚
+ * @param {[Date, Date]} range - [入住日期, 离店日期]
+ * @returns {number} 入住晚数
+ */
 const getNights = (range) => Math.max(1, Math.round((range[1] - range[0]) / 86400000));
 
+/**
+ * MobileHome - 移动端酒店首页
+ * 集成搜索条件录入（城市/日期/关键词/标签）与热门酒店推荐展示。
+ */
 export default function MobileHome() {
+  // React Router 导航钩子，用于跳转列表页 / 详情页
   const navigate = useNavigate();
-  // 状态：控制日历弹出层
+
+  // 控制日期选择弹出层的显示与隐藏
   const [calendarVisible, setCalendarVisible] = useState(false);
-  // 状态：存储选中的日期范围
+  // 已确认的日期范围 [入住 Date, 离店 Date]，未选择时为 null
   const [dateRange, setDateRange] = useState(null);
-  // 临时状态：存储用户正在选择的日期（点击确认后才正式保存到 dateRange）
+  // 临时日期范围：用户在日历滑动选择时的中间状态，点击"确认"后才同步到 dateRange
   const [tempDateRange, setTempDateRange] = useState(null);
-  // 状态：存储当前城市
+  // 当前搜索城市，默认"上海"，可通过 GPS 定位自动更新
   const [currentCity, setCurrentCity] = useState('上海');
-  // 状态：定位加载中
+  // 是否正在执行 GPS 定位，用于控制按钮 UI 与提示文字
   const [locating, setLocating] = useState(false);
-  // 从 mock 数据中随机选一个酒店作为 Banner 推荐
+  // 从 mock 数据随机取一个酒店（备用，实际 Banner 由 renderBanner 负责）
   const bannerHotel = mockHotels[Math.floor(Math.random() * mockHotels.length)];
-  //  搜索与筛选 
-  const [keyword, setKeyword] = useState(''); // 搜索关键字
-  const [selectedTags, setSelectedTags] = useState([]); // 已选中的标签
+  // 关键词搜索输入值，绑定 SearchBar
+  const [keyword, setKeyword] = useState('');
+  // 已选中的快捷标签列表，支持多选
+  const [selectedTags, setSelectedTags] = useState([]);
 
   // 获取当前位置的函数
   const handleGetLocation = () => {
@@ -61,7 +89,7 @@ export default function MobileHome() {
             latitude,
             longitude
           });
-          const response = await fetch(`/api/location/geocode?${params}`);
+          const response = await fetch(`/geo/location?${params}`);
 
           if (!response.ok) {
             throw new Error('后端接口调用失败');
@@ -126,7 +154,12 @@ export default function MobileHome() {
     );
   };
 
-  // 标签点击切换
+  /**
+   * 切换标签选中状态
+   * - 已选中 → 从列表中移除（取消选中）
+   * - 未选中 → 追加到列表末尾（选中）
+   * @param {string} tag - 被点击的标签文本
+   */
   const toggleTag = (tag) => {
     if (selectedTags.includes(tag)) {
       setSelectedTags(selectedTags.filter(t => t !== tag));
@@ -135,7 +168,12 @@ export default function MobileHome() {
     }
   };
 
-  // 处理查询点击
+  /**
+   * 处理「开始查询」按钮点击
+   * 1. 校验日期是否已选择，未选则提示并终止
+   * 2. 将城市、日期时间戳、关键词、标签序列化为 URLSearchParams
+   * 3. 跳转至酒店列表页 /list，携带全部查询参数
+   */
   const handleSearch = () => {
     // 1. 先做“拦截”：如果没选日期，弹窗报错并中断代码执行
     if (!dateRange) {
@@ -166,8 +204,14 @@ export default function MobileHome() {
     navigate(`/list?${params.toString()}`);
   };
 
-  // 渲染顶部 Banner 区域的函数
+  /**
+   * 渲染顶部 Banner 轮播区域
+   * 取 mockHotels 前 4 条数据构建自动播放的 Swiper 轮播图，
+   * 点击任意图片跳转至对应酒店详情页。
+   * @returns {JSX.Element} Banner 轮播组件
+   */
   const renderBanner = () => {
+    // 取前 4 条酒店数据作为轮播内容
     const bannerHotels = mockHotels.slice(0, 4);
     return (
       <div className="home-banner">
