@@ -40,3 +40,14 @@
   margin: 0 15px;
   color: #eee;
 }
+
+.register-link {
+  margin-top: 20px;
+  color: #666;
+}
+
+.register-link span {
+  color: #1677ff;
+  cursor: pointer;
+  margin-left: 4px;
+}

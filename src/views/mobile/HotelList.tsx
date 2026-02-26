@@ -7,6 +7,7 @@ import {
 import { EnvironmentOutline, StarFill, SearchOutline } from 'antd-mobile-icons';
 import { searchHotels, Hotel, SearchParams } from '../../api';
 import { getDefaultScore, getScoreLevel, getScoreBadgeClass } from '../../utils/score';
+import CityPicker from '../../components/CityPicker';
 import './HotelList.css';
 
 // 酒店卡片数据类型
@@ -14,6 +15,7 @@ interface HotelCardData {
   id: string;
   name: { cn: string; en: string };
   address: string;
+  city?: string;
   star: number;
   price: number;
   min_price: number;
@@ -28,7 +30,6 @@ interface HotelCardData {
 }
 
 // ── 常量 ────────────────────────────────────────
-const CITIES = ['上海', '南京', '北京', '杭州', '成都', '广州'];
 const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 const fmt = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`;
 const QUICK_TAGS = ['免费停车场', '含早餐', '近地铁', '亲子酒店', '健身房', 'SPA', '湖景', '江景房'];
@@ -88,7 +89,7 @@ export default function ListPage() {
   const [total, setTotal]             = useState<number>(0);
 
   // 弹层控制
-  const [cityVisible,     setCityVisible]     = useState<boolean>(false);
+  const [cityPickerVisible, setCityPickerVisible] = useState(false);
   const [checkinVisible,  setCheckinVisible]  = useState<boolean>(false);
   const [checkoutVisible, setCheckoutVisible] = useState<boolean>(false);
   const [peopleVisible,   setPeopleVisible]   = useState<boolean>(false);
@@ -165,6 +166,7 @@ export default function ListPage() {
           id: h.id,
           name: { cn: h.name, en: h.name },
           address: h.address,
+          city: h.city,
           star: h.star,
           price: h.min_price,
           min_price: h.min_price,
@@ -204,6 +206,25 @@ export default function ListPage() {
   useEffect(() => { setPage(1); }, [city, keyword, starFilter, priceFilter, sortOrder, breakfastFilter, quickTagFilter]);
 
   // ── 当前页显示的数据 ──────────────────────────
+  // 按城市分组：当前选择城市的酒店在前，其他城市在后
+  const cityNoSuffix = city.replace(/市$/, '');
+  const groupedHotels = (() => {
+    const currentCityHotels: HotelCardData[] = [];
+    const otherCityHotels: HotelCardData[] = [];
+
+    hotels.forEach(h => {
+      const hotelCity = h.city || '';
+      const isCurrentCity = hotelCity === city || hotelCity === cityNoSuffix + '市' || hotelCity === city + '市';
+      if (isCurrentCity) {
+        currentCityHotels.push(h);
+      } else {
+        otherCityHotels.push(h);
+      }
+    });
+
+    return { currentCityHotels, otherCityHotels };
+  })();
+
   const visibleHotels = hotels;
   const hasMore = hotels.length < total;
 
@@ -249,7 +270,7 @@ export default function ListPage() {
         {/* ① 条件栏：单行布局 */}
         <div className="list-cond-bar">
           {/* 城市 */}
-          <button className="cond-chip cond-city" onClick={() => setCityVisible(true)}>
+          <button className="cond-chip cond-city" onClick={() => setCityPickerVisible(true)}>
             <EnvironmentOutline style={{ fontSize: 13, marginRight: 3 }} />
             {city}
           </button>
@@ -387,14 +408,39 @@ export default function ListPage() {
           </div>
         ) : (
           <>
-            {visibleHotels.map((hotel) => (
-              <ListHotelCard
-                key={hotel.id}
-                hotel={hotel}
-                nights={nights}
-                onClick={() => navigate(`/detail/${hotel.id}`)}
-              />
-            ))}
+            {/* 当前城市酒店 */}
+            {groupedHotels.currentCityHotels.length > 0 && (
+              <>
+                {groupedHotels.currentCityHotels.map((hotel) => (
+                  <ListHotelCard
+                    key={hotel.id}
+                    hotel={hotel}
+                    nights={nights}
+                    onClick={() => navigate(`/detail/${hotel.id}`)}
+                  />
+                ))}
+              </>
+            )}
+
+            {/* 其他城市酒店 */}
+            {groupedHotels.otherCityHotels.length > 0 && (
+              <>
+                {groupedHotels.currentCityHotels.length === 0 && (
+                  <div style={{ padding: '16px', textAlign: 'center', color: '#ff7a45', background: '#fff7e6' }}>
+                    未搜索到 {city} 的酒店，看看其他酒店吧
+                  </div>
+                )}
+                {groupedHotels.otherCityHotels.map((hotel) => (
+                  <ListHotelCard
+                    key={hotel.id}
+                    hotel={hotel}
+                    nights={nights}
+                    onClick={() => navigate(`/detail/${hotel.id}`)}
+                  />
+                ))}
+              </>
+            )}
+
             <InfiniteScroll loadMore={loadMore} hasMore={hasMore} threshold={50}>
               {hasMore
                 ? <div className="list-loading-hint">加载中…</div>
@@ -408,22 +454,12 @@ export default function ListPage() {
       {/* ── 弹层区 ── */}
 
       {/* 城市选择 */}
-      <Popup visible={cityVisible} onMaskClick={() => setCityVisible(false)} bodyStyle={{ borderRadius: '12px 12px 0 0', padding: '20px 16px 32px' }}>
-        <div className="popup-title">选择城市</div>
-        <Space wrap>
-          {CITIES.map(c => (
-            <Button
-              key={c}
-              size="small"
-              color={city === c ? 'primary' : 'default'}
-              fill={city === c ? 'solid' : 'outline'}
-              onClick={() => { setCity(c); setCityVisible(false); }}
-            >
-              {c}
-            </Button>
-          ))}
-        </Space>
-      </Popup>
+      <CityPicker
+        visible={cityPickerVisible}
+        onClose={() => setCityPickerVisible(false)}
+        currentCity={city}
+        onSelect={(c) => setCity(c)}
+      />
 
       {/* 搜索框 */}
       <Popup visible={searchVisible} onMaskClick={() => setSearchVisible(false)} bodyStyle={{ padding: '16px', borderRadius: '12px 12px 0 0' }}>

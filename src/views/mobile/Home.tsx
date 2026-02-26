@@ -3,6 +3,7 @@ import { Button, Calendar, SearchBar, Tag, Popup, Swiper, Toast, Loading } from 
 import { EnvironmentOutline } from 'antd-mobile-icons';
 import { getPopularHotels, reverseGeocode } from '../../api';
 import { getDefaultScore } from '../../utils/score';
+import CityPicker from '../../components/CityPicker';
 import './Home.css';
 import { useNavigate } from 'react-router-dom';
 import HotelCard from '../../components/hotelCard';
@@ -51,6 +52,9 @@ export default function MobileHome() {
   // 星级筛选
   const [starFilter, setStarFilter] = useState<number | null>(null);
   const [starVisible, setStarVisible] = useState(false);
+
+  // 城市选择器
+  const [cityPickerVisible, setCityPickerVisible] = useState(false);
 
   // ── 热门酒店数据 ────────────────────────────
   const [hotels, setHotels] = useState<HotelCardData[]>([]);
@@ -277,13 +281,15 @@ export default function MobileHome() {
       <div className="search-container">
         {/* 城市/定位 */}
         <div className="search-row border-bottom">
-          <span className="city">{currentCity}</span>
-          <div 
-            className="location" 
+          <span className="city" onClick={() => setCityPickerVisible(true)} style={{ cursor: 'pointer' }}>
+            {currentCity} ▼
+          </span>
+          <div
+            className="location"
             onClick={handleGetLocation}
             style={{ cursor: 'pointer', opacity: locating ? 0.5 : 1 }}
           >
-            <EnvironmentOutline /> {locating ? '定位中...' : '我的位置'}
+            {locating ? <Loading color="currentColor" /> : <EnvironmentOutline />} {locating ? '定位中...' : '我的位置'}
           </div>
         </div>
 
@@ -511,6 +517,16 @@ export default function MobileHome() {
                   </div>
                 </div>
         </Popup>
+
+      {/* 城市选择器 */}
+      <CityPicker
+        visible={cityPickerVisible}
+        onClose={() => setCityPickerVisible(false)}
+        currentCity={currentCity}
+        onSelect={(city) => {
+          setCurrentCity(city);
+        }}
+      />
     </div>
   );
 }

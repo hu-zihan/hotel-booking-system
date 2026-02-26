@@ -1,45 +1,44 @@
 import { useState } from 'react';
-import { Form, Input, Button, Toast, Divider, NavBar } from 'antd-mobile';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { login } from '../../api';
+import { Form, Input, Button, Toast, NavBar } from 'antd-mobile';
+import { useNavigate } from 'react-router-dom';
+import { register } from '../../api';
 import './Login.css';
-
-export default function MobileUserLogin() {
+export default function MobileUserRegister() {
   const navigate = useNavigate();
-  const location = useLocation();
   const [loading, setLoading] = useState(false);
 
-  // 判断上一个页面是否是注册页
-  const fromRegister = location.state?.from === '/register';
-
   const onFinish = async (values) => {
+    if (values.password !== values.confirmPassword) {
+      Toast.show({
+        icon: 'fail',
+        content: '两次输入的密码不一致',
+      });
+      return;
+    }
+
     setLoading(true);
     try {
-      const result = await login(values.username, values.password);
+      const result = await register(values.username, values.password);
 
       if (result.ok) {
         Toast.show({
           icon: 'success',
-          content: '登录成功',
+          content: '注册成功，请登录',
         });
-        // 登录成功后返回上一页，如果是来自注册页则返回上上一页
+        // 注册成功后返回登录页，并带上前一个页面的信息
         setTimeout(() => {
-          if (fromRegister) {
-            navigate(-2);
-          } else {
-            navigate(-1);
-          }
+          navigate('/login', { state: { from: '/register' } });
         }, 500);
       } else {
         Toast.show({
           icon: 'fail',
-          content: result.error || '登录失败',
+          content: result.error || '注册失败',
         });
       }
     } catch (error) {
       Toast.show({
         icon: 'fail',
-        content: error.message || '登录失败',
+        content: error.message || '注册失败',
       });
     } finally {
       setLoading(false);
@@ -51,7 +50,7 @@ export default function MobileUserLogin() {
       <NavBar onBack={() => navigate(-1)} />
       <div className="login-header">
         <img src="https://yisu-hotel.oss-cn-hangzhou.aliyuncs.com/logo/yisu.jpg" alt="Ctrip Logo" />
-        <p>易宿在手，说走就走</p>
+        <p>加入我们，开始旅程</p>
       </div>
 
       <Form
@@ -59,7 +58,7 @@ export default function MobileUserLogin() {
         onFinish={onFinish}
         footer={
           <Button block type='submit' color='primary' size='large' className="login-submit">
-            登录
+            注册
           </Button>
         }
       >
@@ -69,17 +68,14 @@ export default function MobileUserLogin() {
         <Form.Item name='password' label='密码' rules={[{ required: true, message: '请输入密码' }]}>
           <Input placeholder='请输入密码' type='password' clearable />
         </Form.Item>
+        <Form.Item name='confirmPassword' label='确认密码' rules={[{ required: true, message: '请再次输入密码' }]}>
+          <Input placeholder='请再次输入密码' type='password' clearable />
+        </Form.Item>
       </Form>
 
       <div className="login-footer">
-        <Divider>其他登录方式</Divider>
-        <div className="other-methods">
-          <span>微信登录</span>
-          <span className="separator">|</span>
-          <span>账号密码</span>
-        </div>
         <div className="register-link">
-          还没有账号？<span onClick={() => navigate('/register')}>立即注册</span>
+          已有账号？<span onClick={() => navigate('/login')}>立即登录</span>
         </div>
       </div>
     </div>

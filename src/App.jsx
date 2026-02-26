@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import MobileHome from './views/mobile/Home';
 import MobileUserLogin from './views/mobile/Login';
+import MobileUserRegister from './views/mobile/Register';
 import HotelDetail from './views/mobile/HotelDetail';
 import ListPage from './views/mobile/HotelList';
 
@@ -14,6 +15,9 @@ function App() {
         
         {/* path="/login" 代表登录页，显示 MobileUserLogin 组件 */}
         <Route path="/login" element={<MobileUserLogin />} />
+
+        {/* path="/register" 代表注册页，显示 MobileUserRegister 组件 */}
+        <Route path="/register" element={<MobileUserRegister />} />
 
         <Route path="/list" element={<ListPage />} />
 
